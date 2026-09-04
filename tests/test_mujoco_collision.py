@@ -1,0 +1,47 @@
+import unittest
+
+import numpy as np
+
+from hard_disk_robot.adapters.mujoco import (
+    MujocoCollisionChecker,
+    MujocoRobotAdapter,
+    load_model,
+    reset_home,
+)
+from hard_disk_robot.core import JointState
+
+
+class MujocoCollisionCheckerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.model, cls.data = load_model()
+        reset_home(cls.model, cls.data)
+
+    def setUp(self) -> None:
+        reset_home(self.model, self.data)
+
+    def test_home_is_collision_free(self) -> None:
+        checker = MujocoCollisionChecker(self.model, self.data)
+        robot = MujocoRobotAdapter(self.model, self.data)
+        state = robot.read_joint_state()
+        self.assertTrue(checker.is_collision_free(state))
+        self.assertGreater(checker.minimum_distance(state), 0.0)
+
+    def test_arm_extension_collides_with_environment(self) -> None:
+        checker = MujocoCollisionChecker(self.model, self.data)
+        robot = MujocoRobotAdapter(self.model, self.data)
+        names = robot.read_joint_state().names
+        state = JointState(names, [0.5, 0.5, 0.5, 0.0, 0.0, 0.0])
+        self.assertFalse(checker.is_collision_free(state))
+        self.assertLess(checker.minimum_distance(state), 0.0)
+
+    def test_robot_environment_contact_is_ignored(self) -> None:
+        # This checks that the resting replacement-drive/bench contacts are
+        # not mistaken for a robot collision at home.
+        checker = MujocoCollisionChecker(self.model, self.data)
+        robot = MujocoRobotAdapter(self.model, self.data)
+        self.assertTrue(checker.is_collision_free(robot.read_joint_state()))
+
+
+if __name__ == "__main__":
+    unittest.main()

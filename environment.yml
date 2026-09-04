@@ -1,0 +1,34 @@
+name: hard_disk_robot
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - python=3.12
+  - numpy>=2.0,<3
+  - pinocchio>=4.1,<5
+  - pillow>=9
+  - pytest>=8,<9
+  - pip
+  - pip:
+      - mujoco>=3.12,<4
+      - -e .
+
+# Keep ROS Humble and user-installed Python/native libraries out of this
+# environment. Conda restores the previous values when the environment is
+# deactivated.
+variables:
+  PYTHONNOUSERSITE: "1"
+  PYTHONPATH: ""
+  AMENT_PREFIX_PATH: ""
+  COLCON_PREFIX_PATH: ""
+  CMAKE_PREFIX_PATH: ""
+  LD_LIBRARY_PATH: ""
+  PKG_CONFIG_PATH: ""
+  CPATH: ""
+  CPLUS_INCLUDE_PATH: ""
+  LIBRARY_PATH: ""
+  ROS_DISTRO: ""
+  ROS_VERSION: ""
+  ROS_PYTHON_VERSION: ""

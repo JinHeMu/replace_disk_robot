@@ -1,0 +1,30 @@
+schema_version: 1
+project: hard_disk_robot
+task: replace_server_drive
+runtime_backend: mujoco
+target:
+  server_body: server_chassis
+  carrier_body: target_drive_carrier
+  replacement_body: replacement_drive
+  ft_frame: wrist_ft_site
+
+# 本文件只定义阶段合同。planner/controller/observer 均为待实现插件，不在当前框架中执行。
+stages:
+  - {id: precheck, action: verify_safe_state, completion: safety_ready}
+  - {id: localize, action: estimate_target_pose, completion: target_pose_valid}
+  - {id: approach_latch, action: move_to_prepress, completion: prepress_pose_reached}
+  - {id: press_latch, action: guarded_press, completion: latch_pressed}
+  - {id: eject, action: release_and_eject, completion: carrier_exposed}
+  - {id: grasp_old, action: grasp_carrier, completion: stable_grasp}
+  - {id: extract_old, action: guarded_extract, completion: carrier_removed}
+  - {id: place_old, action: place_in_staging_zone, completion: old_drive_released}
+  - {id: grasp_new, action: grasp_replacement, completion: stable_grasp}
+  - {id: align_new, action: align_with_bay, completion: insertion_axis_aligned}
+  - {id: insert_new, action: guarded_insert, completion: carrier_seated}
+  - {id: verify, action: verify_installation, completion: task_verified}
+
+safety_defaults:
+  command_output_enabled: false
+  force_limit_n: 10.0
+  torque_limit_nm: 1.0
+  max_carrier_extraction_m: 0.16

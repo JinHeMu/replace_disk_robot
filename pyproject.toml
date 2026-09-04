@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hard-disk-robot"
+version = "0.1.0"
+description = "Backend-independent architecture and MuJoCo framework for robotic server drive replacement"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+mujoco = ["mujoco>=3.1", "Pillow>=9.0"]
+kinematics = ["pin>=3,<5"]
+test = ["pytest>=8,<9"]
+
+[tool.pytest.ini_options]
+# Keep unrelated user/ROS pytest entry points out of this standalone package.
+addopts = [
+    "-p", "no:anyio",
+    "-p", "no:launch_testing",
+    "-p", "no:launch_ros",
+]
+testpaths = ["tests"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

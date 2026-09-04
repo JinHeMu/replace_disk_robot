@@ -1,0 +1,56 @@
+<mujoco model="hard_disk_robot_mujoco">
+  <!-- UR5e+2F-85 模型已从工作区兄弟工程 ur5e/ vendoring 进 models/ur5e/，
+       本仓库不再依赖外部路径；网格按各声明文件自身目录解析。 -->
+  <include file="models/ur5e/ur5e_with_gripper.xml"/>
+  <include file="models/server_2u_8bay.xml"/>
+
+  <compiler angle="radian" autolimits="true"/>
+
+  <option timestep="0.002" integrator="implicitfast" cone="elliptic" impratio="10"/>
+  <statistic center="0.62 0 0.55" extent="1.35"/>
+
+  <visual>
+    <headlight diffuse="0.65 0.65 0.65" ambient="0.28 0.28 0.28" specular="0.1 0.1 0.1"/>
+    <rgba haze="0.12 0.18 0.24 1"/>
+    <global azimuth="145" elevation="-22" offwidth="960" offheight="720"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.22 0.30 0.42" rgb2="0.03 0.04 0.06"
+             width="512" height="3072"/>
+    <texture name="floor_tex" type="2d" builtin="checker" mark="edge"
+             rgb1="0.22 0.24 0.27" rgb2="0.12 0.14 0.17" markrgb="0.45 0.48 0.52"
+             width="300" height="300"/>
+    <material name="floor_mat" texture="floor_tex" texrepeat="8 8" texuniform="true"
+              reflectance="0.08"/>
+  </asset>
+
+  <worldbody>
+    <light name="key_light" pos="0.1 -0.7 1.8" dir="0.4 0.2 -1" diffuse="0.8 0.8 0.8"/>
+    <light name="server_light" pos="0.8 0.6 1.3" dir="0 -0.4 -1" diffuse="0.45 0.5 0.6"/>
+    <geom name="floor" type="plane" size="0 0 0.05" material="floor_mat"
+          contype="1" conaffinity="1"/>
+
+    <camera name="overview_cam" pos="-0.35 -1.05 1.05"
+            mode="targetbody" target="overview_target" fovy="48"/>
+    <camera name="server_front_cam" pos="0.30 -0.45 0.83"
+            mode="targetbody" target="task_target" fovy="40"/>
+
+    <body name="overview_target" pos="0.58 0 0.48">
+      <geom type="sphere" size="0.001" rgba="0 0 0 0" contype="0" conaffinity="0"/>
+    </body>
+
+    <body name="task_target" pos="0.690 -0.039 0.742" mocap="true">
+      <geom type="sphere" size="0.006" rgba="1 0.25 0.1 0.7"
+            contype="0" conaffinity="0" group="4"/>
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <key name="home"
+         qpos="-2.9746 -1.5307 1.1305 -1.1455 -1.5708 -1.3353
+               0 0 0 0 0 0 0 0
+               0 0"
+         ctrl="-2.9746 -1.5307 1.1305 -1.1455 -1.5708 -1.3353 255 0 0"/>
+  </keyframe>
+</mujoco>

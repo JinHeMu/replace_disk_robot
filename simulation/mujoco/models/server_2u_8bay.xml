@@ -1,0 +1,169 @@
+<mujoco model="generic_2u_8bay_server">
+  <default>
+    <default class="server_visual">
+      <geom contype="0" conaffinity="0" group="2"/>
+    </default>
+    <default class="server_collision">
+      <geom contype="1" conaffinity="1" group="3" friction="0.8 0.02 0.002"/>
+    </default>
+  </default>
+
+  <asset>
+    <material name="rack_black" rgba="0.10 0.11 0.13 1"/>
+    <material name="server_metal" rgba="0.38 0.41 0.45 1" metallic="0.4" roughness="0.55"/>
+    <material name="drive_dark" rgba="0.18 0.20 0.23 1" metallic="0.2" roughness="0.5"/>
+    <material name="drive_target" rgba="0.10 0.34 0.55 1" metallic="0.15" roughness="0.45"/>
+    <material name="drive_new" rgba="0.10 0.48 0.25 1" metallic="0.15" roughness="0.45"/>
+    <material name="status_green" rgba="0.1 1 0.3 1" emission="0.6"/>
+    <material name="button_orange" rgba="1 0.28 0.04 1" emission="0.15"/>
+    <material name="bench_mat" rgba="0.30 0.25 0.20 1" roughness="0.8"/>
+    <material name="rack_frame_mat" rgba="0.12 0.14 0.17 1" metallic="0.55" roughness="0.5"/>
+  </asset>
+
+  <worldbody>
+    <!-- Simplified 19-inch rack frame. Dimensions are scene assumptions, not a vendor CAD model. -->
+    <body name="rack_frame">
+      <geom name="rack_front_left" type="box" pos="0.675 0.255 0.70" size="0.025 0.025 0.70"
+            material="rack_frame_mat" class="server_collision"/>
+      <geom name="rack_front_right" type="box" pos="0.675 -0.255 0.70" size="0.025 0.025 0.70"
+            material="rack_frame_mat" class="server_collision"/>
+      <geom name="rack_rear_left" type="box" pos="1.425 0.255 0.70" size="0.025 0.025 0.70"
+            material="rack_frame_mat" class="server_collision"/>
+      <geom name="rack_rear_right" type="box" pos="1.425 -0.255 0.70" size="0.025 0.025 0.70"
+            material="rack_frame_mat" class="server_collision"/>
+      <geom name="rack_top_left" type="box" pos="1.050 0.255 1.375" size="0.375 0.025 0.025"
+            material="rack_frame_mat" class="server_collision"/>
+      <geom name="rack_top_right" type="box" pos="1.050 -0.255 1.375" size="0.375 0.025 0.025"
+            material="rack_frame_mat" class="server_collision"/>
+      <geom name="server_support" type="box" pos="1.050 0 0.665" size="0.350 0.215 0.010"
+            material="rack_frame_mat" class="server_collision"/>
+    </body>
+
+    <!-- 2U server: 434 mm wide, 86.8 mm high, 700.7 mm chassis depth. -->
+    <body name="server_chassis" pos="1.050 0 0.720">
+      <geom name="server_top" type="box" pos="0 0 0.0414" size="0.35035 0.217 0.002"
+            material="server_metal" class="server_collision"/>
+      <geom name="server_bottom" type="box" pos="0 0 -0.0414" size="0.35035 0.217 0.002"
+            material="server_metal" class="server_collision"/>
+      <geom name="server_left" type="box" pos="0 0.215 0" size="0.35035 0.002 0.0434"
+            material="server_metal" class="server_collision"/>
+      <geom name="server_right" type="box" pos="0 -0.215 0" size="0.35035 0.002 0.0434"
+            material="server_metal" class="server_collision"/>
+      <geom name="server_back" type="box" pos="0.348 0 0" size="0.002 0.217 0.0434"
+            material="server_metal" class="server_collision"/>
+
+      <!-- Front ears and control panels. Bay carrier pitch is a documented simulation assumption. -->
+      <geom name="left_ear" type="box" pos="-0.354 0.227 0" size="0.004 0.010 0.0434"
+            material="rack_black" class="server_collision"/>
+      <geom name="right_ear" type="box" pos="-0.354 -0.227 0" size="0.004 0.010 0.0434"
+            material="rack_black" class="server_collision"/>
+      <geom name="left_panel" type="box" pos="-0.354 0.178 0" size="0.006 0.025 0.038"
+            material="rack_black" class="server_collision"/>
+      <geom name="right_panel" type="box" pos="-0.354 -0.178 0" size="0.006 0.025 0.038"
+            material="rack_black" class="server_collision"/>
+      <geom name="power_led" type="cylinder" pos="-0.361 -0.178 0.018" quat="0.7071 0 0.7071 0"
+            size="0.003 0.001" material="status_green" class="server_visual"/>
+
+      <!-- Non-colliding bay frame makes the 4 x 2 carrier layout explicit. -->
+      <geom type="box" pos="-0.357 0 0.041" size="0.005 0.153 0.002"
+            material="server_metal" class="server_visual"/>
+      <geom type="box" pos="-0.357 0 -0.041" size="0.005 0.153 0.002"
+            material="server_metal" class="server_visual"/>
+      <geom type="box" pos="-0.357 0 0" size="0.005 0.153 0.001"
+            material="server_metal" class="server_visual"/>
+      <geom type="box" pos="-0.357 0.078 0" size="0.005 0.001 0.041"
+            material="server_metal" class="server_visual"/>
+      <geom type="box" pos="-0.357 0 0" size="0.005 0.001 0.041"
+            material="server_metal" class="server_visual"/>
+      <geom type="box" pos="-0.357 -0.078 0" size="0.005 0.001 0.041"
+            material="server_metal" class="server_visual"/>
+
+      <!-- Seven fixed carriers; upper-row bay 2 is the manipulable target. -->
+      <body name="drive_0_fixed" pos="-0.2998 0.117 0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+      <body name="drive_1_fixed" pos="-0.2998 0.039 0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+
+      <body name="target_drive_carrier" pos="-0.2998 -0.039 0.022">
+        <joint name="target_drive_slide" type="slide" axis="-1 0 0" range="0 0.16"
+               damping="2.5" frictionloss="0.4" armature="0.02"/>
+        <inertial mass="0.25" pos="0 0 0"
+                  diaginertia="0.00012 0.00024 0.00024"/>
+        <!-- The bay is intentionally empty. The good demo drive is held by the
+             gripper and will be inserted through this opening. -->
+        <body name="target_latch" pos="-0.063 0.027 0">
+          <joint name="target_latch_press" type="slide" axis="1 0 0" range="0 0.006"
+                 damping="0.08" stiffness="18" springref="0" armature="0.001"/>
+          <geom name="target_latch_button" type="cylinder" quat="0.7071 0 0.7071 0"
+                size="0.005 0.002" material="button_orange" class="server_collision"/>
+        </body>
+      </body>
+
+      <!-- High-precision empty bay guide: inner cross-section is only 1 mm
+           larger than the demo drive (0.5 mm per side). -->
+      <geom name="empty_bay_guide_bottom" type="box"
+            pos="-0.2998 -0.039 0.014"
+            size="0.10 0.0360 0.001"
+            material="server_metal" class="server_collision"/>
+      <geom name="empty_bay_guide_top" type="box"
+            pos="-0.2998 -0.039 0.030"
+            size="0.10 0.0360 0.001"
+            material="server_metal" class="server_collision"/>
+      <geom name="empty_bay_guide_left" type="box"
+            pos="-0.2998 -0.0750 0.022"
+            size="0.10 0.001 0.0085"
+            material="server_metal" class="server_collision"/>
+      <geom name="empty_bay_guide_right" type="box"
+            pos="-0.2998 -0.0030 0.022"
+            size="0.10 0.001 0.0085"
+            material="server_metal" class="server_collision"/>
+      <geom name="empty_bay_guide_back" type="box"
+            pos="-0.200 -0.039 0.022"
+            size="0.001 0.0370 0.0085"
+            material="server_metal" class="server_collision"/>
+
+      <body name="drive_3_fixed" pos="-0.2998 -0.117 0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+      <body name="drive_4_fixed" pos="-0.2998 0.117 -0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+      <body name="drive_5_fixed" pos="-0.2998 0.039 -0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+      <body name="drive_6_fixed" pos="-0.2998 -0.039 -0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+      <body name="drive_7_fixed" pos="-0.2998 -0.117 -0.022">
+        <geom type="box" size="0.050225 0.03505 0.0075" material="drive_dark" class="server_visual"/>
+        <geom type="box" pos="-0.056 0 0" size="0.006 0.037 0.010" material="rack_black" class="server_visual"/>
+      </body>
+    </body>
+
+    <!-- Empty staging table (replacement drive is now held by the gripper). -->
+    <body name="staging_bench" pos="0.40 -0.34 0.225">
+      <geom name="bench_top" type="box" pos="0 0 0.225" size="0.18 0.16 0.015"
+            material="bench_mat" class="server_collision"/>
+      <geom type="box" pos="0.14 0 0" size="0.018 0.12 0.21"
+            material="bench_mat" class="server_collision"/>
+      <geom type="box" pos="-0.14 0 0" size="0.018 0.12 0.21"
+            material="bench_mat" class="server_collision"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Mechanism actuators expose interfaces only; no replacement sequence is encoded here. -->
+    <position name="target_drive_slide_actuator" joint="target_drive_slide"
+              kp="120" kv="12" ctrlrange="0 0.16" forcerange="-40 40"/>
+    <position name="target_latch_actuator" joint="target_latch_press"
+              kp="80" kv="3" ctrlrange="0 0.006" forcerange="-20 20"/>
+  </actuator>
+</mujoco>
