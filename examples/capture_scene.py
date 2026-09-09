@@ -22,8 +22,6 @@ def main() -> None:
     model, data = load_model()
     reset_home(model, data)
     robot = MujocoRobotAdapter(model, data)
-    robot.command_arm(robot.arm_position())
-    robot.command_gripper_opening(0.085)
     for _ in range(800):
         mujoco.mj_step(model, data)
 
@@ -32,7 +30,7 @@ def main() -> None:
 
     renderer = mujoco.Renderer(model, width=960, height=720)
     try:
-        for camera_name in ("overview_cam", "server_front_cam", "wrist_cam"):
+        for camera_name in ("overview_cam", "insertion_cam", "grasp_cam"):
             renderer.update_scene(data, camera=camera_name)
             Image.fromarray(renderer.render()).save(args.output_dir / f"{camera_name}.png")
     finally:

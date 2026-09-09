@@ -61,7 +61,7 @@
                springref="2.62" damping="0.00125"/>
       </default>
       <default class="coupler">
-        <joint range="-1.57 0" armature="0.001"
+        <joint range="-1.57 0.05" armature="0.001"
                solimplimit="0.95 0.99 0.001" solreflimit="0.005 1"/>
       </default>
       <default class="visual_2f85">
@@ -214,20 +214,14 @@
                       <site name="pinch" pos="0 0 0.145" type="sphere" group="5"
                             rgba="0.9 0.9 0.9 1" size="0.005"/>
 
-                      <!-- Demo drive held by the gripper from the start.
-                           It is a fixed child of g_base so the insertion-only demo
-                           does not need a separate pick-up stage. -->
-                      <body name="replacement_drive_held" pos="0 0 0.145" quat="-0.5 0.5 0.5 0.5">
-                        <inertial mass="0.198" pos="0 0 0"
-                                  diaginertia="0.000085 0.00017 0.00020"/>
-                        <geom name="replacement_drive_held_body" type="box"
-                              size="0.050225 0.03505 0.0075"
-                              contype="1" conaffinity="1"
-                              rgba="0.1 0.48 0.25 1"/>
-                        <geom name="replacement_drive_held_bezel" type="box"
-                              pos="-0.056 0 0" size="0.006 0.037 0.010"
-                              contype="1" conaffinity="1"
-                              rgba="0.1 0.48 0.25 1"/>
+                      <!-- Ideal rear short-edge grasp: length along g_base Z, thickness along Y.
+                           Rear face at Z=0.125 m, centered between the fingers in width. -->
+                      <body name="replacement_drive_held" pos="0 0 0.2135" quat="0.5 -0.5 -0.5 -0.5">
+                        <geom name="drive_collision" type="box" size="0.0885 0.053 0.013"
+                              mass="0.20" rgba="0.16 0.55 0.38 1" friction="0.3 0.005 0.0001"
+                              solref="0.002 1" solimp="0.99 0.999 0.0001" margin="0"/>
+                        <site name="drive_center" size="0.002" rgba="0 0 0 0"/>
+                        <site name="drive_front" pos="0.0885 0 0" size="0.002" rgba="0 0 0 0"/>
                       </body>
 
                       <!-- Right 4-bar linkage -->
@@ -337,6 +331,19 @@
 
   <!-- =============== contact exclusions =============== -->
   <contact>
+    <exclude body1="replacement_drive_held" body2="left_driver"/>
+    <exclude body1="replacement_drive_held" body2="left_coupler"/>
+    <exclude body1="replacement_drive_held" body2="left_spring_link"/>
+    <exclude body1="replacement_drive_held" body2="left_follower"/>
+    <exclude body1="replacement_drive_held" body2="left_pad"/>
+    <exclude body1="replacement_drive_held" body2="left_silicone_pad"/>
+    <exclude body1="replacement_drive_held" body2="right_driver"/>
+    <exclude body1="replacement_drive_held" body2="right_coupler"/>
+    <exclude body1="replacement_drive_held" body2="right_spring_link"/>
+    <exclude body1="replacement_drive_held" body2="right_follower"/>
+    <exclude body1="replacement_drive_held" body2="right_pad"/>
+    <exclude body1="replacement_drive_held" body2="right_silicone_pad"/>
+
     <exclude body1="g_base" body2="left_driver"/>
     <exclude body1="g_base" body2="right_driver"/>
     <exclude body1="g_base" body2="left_spring_link"/>
@@ -358,6 +365,16 @@
   </tendon>
 
   <equality>
+    <!-- Ideal closed grasp: solve four-bar closure and parallel pad planes at +/-13 mm. -->
+    <joint name="grasp_lock_6" joint1="right_driver_joint" polycoef="0.562814685780366 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_7" joint1="right_coupler_joint" polycoef="0.0159765523193459 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_8" joint1="right_spring_link_joint" polycoef="0.571868321668719 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_9" joint1="right_follower_joint" polycoef="-0.571868321668719 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_10" joint1="left_driver_joint" polycoef="0.562814685780366 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_11" joint1="left_coupler_joint" polycoef="0.0159765523193459 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_12" joint1="left_spring_link_joint" polycoef="0.571868321668719 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    <joint name="grasp_lock_13" joint1="left_follower_joint" polycoef="-0.571868321668719 0 0 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+
     <connect anchor="0 0 0" body1="right_follower" body2="right_coupler"
              solimp="0.95 0.99 0.001" solref="0.005 1"/>
     <connect anchor="0 0 0" body1="left_follower" body2="left_coupler"

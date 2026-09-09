@@ -8,11 +8,11 @@ This script uses:
 
 Run with a Pinocchio-compatible Python environment, e.g. the conda env:
 
-    (hard_disk_robot) $ python3 scripts/demo_ur5e_rrt_opt.py --save
+    (hard_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --save
 
 Or with interactive window:
 
-    (hard_disk_robot) $ python3 scripts/demo_ur5e_rrt_opt.py --show
+    (hard_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --show
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 
 The checker treats contacts between the robot arm/gripper and the non-robot
 environment as collisions.  Contacts between two environment bodies are ignored
-(e.g. the replacement drive resting on the staging bench).
+The rigidly held drive belongs to the robot collision set.
 """
 
 from __future__ import annotations

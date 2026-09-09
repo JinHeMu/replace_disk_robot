@@ -2,8 +2,8 @@
 """Visualize trajectory optimization on the 2-DOF planar arm.
 
 Run:
-    python3 scripts/demo_trj_opt_planar2.py --save
-    python3 scripts/demo_trj_opt_planar2.py --show
+    python3 examples/demo_trj_opt_planar2.py --save
+    python3 examples/demo_trj_opt_planar2.py --show
 """
 
 from __future__ import annotations

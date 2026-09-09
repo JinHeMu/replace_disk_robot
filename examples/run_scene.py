@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Open the server-drive scene or run it headlessly for a bounded duration."""
+"""Open the precision-insertion scene or run it headlessly for a bounded duration."""
 
 import argparse
 import sys
@@ -29,8 +29,6 @@ def main() -> None:
     reset_home(model, data)
     robot = MujocoRobotAdapter(model, data)
     sensor = MujocoWristFTAdapter(model, data)
-    robot.command_arm(robot.arm_position())
-    robot.command_gripper_opening(0.085)
 
     if args.headless:
         steps = max(1, int(args.seconds / model.opt.timestep))

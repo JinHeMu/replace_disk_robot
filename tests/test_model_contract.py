@@ -8,7 +8,6 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from hard_disk_robot.adapters.mujoco import (
-    MujocoMechanismAdapter,
     MujocoRobotAdapter,
     MujocoWristFTAdapter,
     load_model,
@@ -27,12 +26,11 @@ class ModelContractTest(unittest.TestCase):
         self.data.xfrc_applied[:] = 0
 
     def test_dimensions_and_named_interfaces(self) -> None:
-        self.assertEqual(self.model.nu, 9)
+        self.assertEqual(self.model.nu, 7)
         self.assertEqual(self.model.nsensor, 2)
         self.assertEqual(self.model.nsensordata, 6)
         robot = MujocoRobotAdapter(self.model, self.data)
         sensor = MujocoWristFTAdapter(self.model, self.data)
-        MujocoMechanismAdapter(self.model, self.data)
         self.assertEqual(len(robot.read_joint_state().names), 6)
         self.assertEqual(sensor.read_wrench().frame_id, "wrist_ft_site")
 

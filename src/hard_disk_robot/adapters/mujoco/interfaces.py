@@ -116,28 +116,3 @@ class MujocoWristFTAdapter:
     def read_wrench(self) -> Wrench:
         vector = self.wrench()
         return Wrench("wrist_ft_site", vector[:3], vector[3:])
-
-
-@dataclass
-class MujocoMechanismAdapter:
-    """Direct handles for the target carrier and its spring-loaded latch."""
-
-    model: mujoco.MjModel
-    data: mujoco.MjData
-
-    def __post_init__(self) -> None:
-        joint_names = ("target_drive_slide", "target_latch_press")
-        joint_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_names)
-        self._qpos_ids = self.model.jnt_qposadr[joint_ids]
-        actuator_names = ("target_drive_slide_actuator", "target_latch_actuator")
-        self._actuator_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, actuator_names)
-
-    def positions(self) -> NDArray[np.float64]:
-        """Return [carrier extraction, latch press] in metres."""
-        return self.data.qpos[self._qpos_ids].copy()
-
-    def command(self, carrier_extraction: float, latch_press: float) -> None:
-        values = np.asarray([carrier_extraction, latch_press], dtype=float)
-        if not np.all(np.isfinite(values)):
-            raise ValueError("mechanism commands must be finite")
-        self.data.ctrl[self._actuator_ids] = np.clip(values, [0.0, 0.0], [0.16, 0.006])

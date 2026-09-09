@@ -1,56 +1,31 @@
-<mujoco model="hard_disk_robot_mujoco">
-  <!-- UR5e+2F-85 模型已从工作区兄弟工程 ur5e/ vendoring 进 models/ur5e/，
-       本仓库不再依赖外部路径；网格按各声明文件自身目录解析。 -->
+<mujoco model="precision_disk_insertion">
   <include file="models/ur5e/ur5e_with_gripper.xml"/>
-  <include file="models/server_2u_8bay.xml"/>
-
   <compiler angle="radian" autolimits="true"/>
-
-  <option timestep="0.002" integrator="implicitfast" cone="elliptic" impratio="10"/>
-  <statistic center="0.62 0 0.55" extent="1.35"/>
-
-  <visual>
-    <headlight diffuse="0.65 0.65 0.65" ambient="0.28 0.28 0.28" specular="0.1 0.1 0.1"/>
-    <rgba haze="0.12 0.18 0.24 1"/>
-    <global azimuth="145" elevation="-22" offwidth="960" offheight="720"/>
-  </visual>
-
-  <asset>
-    <texture type="skybox" builtin="gradient" rgb1="0.22 0.30 0.42" rgb2="0.03 0.04 0.06"
-             width="512" height="3072"/>
-    <texture name="floor_tex" type="2d" builtin="checker" mark="edge"
-             rgb1="0.22 0.24 0.27" rgb2="0.12 0.14 0.17" markrgb="0.45 0.48 0.52"
-             width="300" height="300"/>
-    <material name="floor_mat" texture="floor_tex" texrepeat="8 8" texuniform="true"
-              reflectance="0.08"/>
-  </asset>
-
+  <option timestep="0.001" integrator="implicitfast" cone="elliptic" impratio="10" iterations="100" tolerance="1e-10"/>
+  <statistic center="0.3 0 0.35" extent="1.1"/>
+  <visual><headlight diffuse="0.7 0.7 0.7" ambient="0.4 0.4 0.4"/><global offwidth="1200" offheight="900"/></visual>
   <worldbody>
-    <light name="key_light" pos="0.1 -0.7 1.8" dir="0.4 0.2 -1" diffuse="0.8 0.8 0.8"/>
-    <light name="server_light" pos="0.8 0.6 1.3" dir="0 -0.4 -1" diffuse="0.45 0.5 0.6"/>
-    <geom name="floor" type="plane" size="0 0 0.05" material="floor_mat"
-          contype="1" conaffinity="1"/>
-
-    <camera name="overview_cam" pos="-0.35 -1.05 1.05"
-            mode="targetbody" target="overview_target" fovy="48"/>
-    <camera name="server_front_cam" pos="0.30 -0.45 0.83"
-            mode="targetbody" target="task_target" fovy="40"/>
-
-    <body name="overview_target" pos="0.58 0 0.48">
-      <geom type="sphere" size="0.001" rgba="0 0 0 0" contype="0" conaffinity="0"/>
+    <light pos="0 -1 2" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="0 0 0.05" rgba="0.22 0.24 0.27 1"/>
+    <camera name="overview_cam" pos="1.25 -1.25 1.05" xyaxes="0.707 0.707 0 -0.3 0.3 0.9"/>
+    <camera name="insertion_cam" pos="0.85 -0.45 0.7" mode="targetbody" target="insertion_socket" fovy="38"/>
+    <camera name="grasp_cam" pos="0.3 -0.4 0.65" mode="targetbody" target="replacement_drive_held" fovy="40"/>
+    <!-- 106.5 x 26.5 mm clear aperture; 40 mm straight channel, 12 mm walls. -->
+    <body name="insertion_socket" pos="0.6485 0 0.45">
+      <site name="socket_entry" size="0.002" rgba="0 0 0 0"/>
+      <geom name="socket_left" type="box" pos="0.02 0.05925 0" size="0.02 0.006 0.02525" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_right" type="box" pos="0.02 -0.05925 0" size="0.02 0.006 0.02525" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_top" type="box" pos="0.02 0 0.01925" size="0.02 0.05325 0.006" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_bottom" type="box" pos="0.02 0 -0.01925" size="0.02 0.05325 0.006" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
     </body>
-
-    <body name="task_target" pos="0.690 -0.039 0.742" mocap="true">
-      <geom type="sphere" size="0.006" rgba="1 0.25 0.1 0.7"
-            contype="0" conaffinity="0" group="4"/>
-    </body>
+    <!-- Hidden reference for optional FK/IK experiments. -->
+    <body name="task_target" pos="0.55 0 0.45" mocap="true"><site name="task_marker" size="0.005" rgba="1 0.2 0.1 0"/></body>
   </worldbody>
-
+  <!-- Arm home was solved for drive_center=(0.55,0,0.45), R=I.
+       ctrl includes qfrc_bias / actuator gain; do not replace it with qpos. -->
   <keyframe>
     <key name="home"
-         qpos="-2.9746 -1.5307 1.1305 -1.1455 -1.5708 -1.3353
-               0 0 0 0 0 0 0 0
-               0 0"
-         ctrl="-2.9746 -1.5307 1.1305 -1.1455 -1.5708 -1.3353 255 0 0"/>
+         qpos="2.45232094662072 -1.99294546015135 2.53041379518691 2.60412431855423 -0.88152461982582 -1.5707963267949 0.562814685780366 0.0159765523193459 0.571868321668719 -0.571868321668719 0.562814685780366 0.0159765523193459 0.571868321668719 -0.571868321668719"
+         ctrl="2.45232094662072 -1.99365664932975 2.52064811059131 2.59985892105767 -0.88152461982582 -1.57079657802225 179.39717548633"/>
   </keyframe>
 </mujoco>

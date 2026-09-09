@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hard-disk-robot"
 version = "0.1.0"
-description = "Backend-independent architecture and MuJoCo framework for robotic server drive replacement"
+description = "Backend-independent robotics tools and MuJoCo precision disk insertion scene"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24"]

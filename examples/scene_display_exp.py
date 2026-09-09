@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Display the complete UR5e server-drive scene in MuJoCo.
+"""Display the complete UR5e precision-insertion scene in MuJoCo.
 
 The example uses the same named robot adapter as the rest of the project. It
 does not command a trajectory: the arm holds the model's ``home`` keyframe and
-the gripper is opened for visual inspection.
+the gripper stays in its calibrated ideal grasp.
 """
 
 from __future__ import annotations
@@ -27,12 +27,12 @@ from hard_disk_robot.adapters.mujoco import (  # noqa: E402
 )
 
 
-CAMERA_NAMES = ("overview_cam", "server_front_cam", "wrist_cam")
+CAMERA_NAMES = ("overview_cam", "insertion_cam", "wrist_cam")
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Display the complete UR5e hard-disk replacement scene.",
+        description="Display the UR5e precision disk insertion scene.",
     )
     parser.add_argument(
         "--camera",
@@ -66,8 +66,6 @@ def _prepare_scene() -> tuple[mujoco.MjModel, mujoco.MjData, MujocoRobotAdapter]
     model, data = load_model()
     reset_home(model, data)
     robot = MujocoRobotAdapter(model, data)
-    robot.command_joint_positions(robot.read_joint_state())
-    robot.command_gripper_opening(0.085)
     return model, data, robot
 
 

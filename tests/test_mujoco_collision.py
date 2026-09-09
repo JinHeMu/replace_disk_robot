@@ -35,12 +35,13 @@ class MujocoCollisionCheckerTest(unittest.TestCase):
         self.assertFalse(checker.is_collision_free(state))
         self.assertLess(checker.minimum_distance(state), 0.0)
 
-    def test_robot_environment_contact_is_ignored(self) -> None:
-        # This checks that the resting replacement-drive/bench contacts are
-        # not mistaken for a robot collision at home.
+    def test_held_drive_socket_collision_is_not_ignored(self) -> None:
+        from hard_disk_robot.adapters.mujoco.insertion_validation import solve_center
         checker = MujocoCollisionChecker(self.model, self.data)
         robot = MujocoRobotAdapter(self.model, self.data)
-        self.assertTrue(checker.is_collision_free(robot.read_joint_state()))
+        target = self.data.site("drive_center").xpos.copy() + [.015,.001,0]
+        q = solve_center(self.model, robot.arm_position(), target)
+        self.assertFalse(checker.is_collision_free(JointState(robot.read_joint_state().names, q)))
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@
 """Visualize RRT-Connect on the 2-DOF planar arm.
 
 Run:
-    python3 scripts/demo_rrt_planar2.py --save
-    python3 scripts/demo_rrt_planar2.py --show
+    python3 examples/demo_rrt_planar2.py --save
+    python3 examples/demo_rrt_planar2.py --show
 """
 
 from __future__ import annotations

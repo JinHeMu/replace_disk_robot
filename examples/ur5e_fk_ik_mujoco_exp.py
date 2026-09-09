@@ -35,7 +35,7 @@ ARM_JOINT_NAMES = (
     "wrist_2_joint",
     "wrist_3_joint",
 )
-CAMERA_NAMES = ("overview_cam", "server_front_cam", "wrist_cam")
+CAMERA_NAMES = ("overview_cam", "insertion_cam", "wrist_cam")
 TARGET_OFFSET_RAD = np.array([0.20, -0.15, 0.20, -0.15, 0.15, 0.10])
 SEED_OFFSET_RAD = np.array([-0.12, 0.18, -0.16, 0.14, -0.12, -0.10])
 IK_POSITION_LIMIT_M = 1e-5
@@ -155,6 +155,7 @@ def _set_target_marker(
     mocap_id = int(model.body("task_target").mocapid[0])
     if mocap_id < 0:
         raise RuntimeError("task_target must be a mocap body")
+    model.site_rgba[model.site("task_marker").id, 3] = 1
     data.mocap_pos[mocap_id] = position_m
     data.mocap_quat[mocap_id] = quaternion_wxyz
 
@@ -332,7 +333,6 @@ def _run_experiment(args: argparse.Namespace) -> None:
     model, data = load_model()
     reset_home(model, data)
     robot = MujocoRobotAdapter(model, data)
-    robot.command_gripper_opening(0.085)
 
     home_q = robot.arm_position()
     target_q = home_q + TARGET_OFFSET_RAD
