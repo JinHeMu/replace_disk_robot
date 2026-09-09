@@ -14,6 +14,7 @@ dependencies = ["numpy>=1.24"]
 mujoco = ["mujoco>=3.1", "Pillow>=9.0"]
 kinematics = ["pin>=3,<5"]
 test = ["pytest>=8,<9"]
+visual = ["matplotlib>=3.8"]
 
 [tool.pytest.ini_options]
 # Keep unrelated user/ROS pytest entry points out of this standalone package.

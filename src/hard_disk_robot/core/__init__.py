@@ -8,9 +8,10 @@ from .ports import (
     MechanismPort,
     TrajectoryOptimizerPort,
 )
-from .types import JointState, Pose, TrajectoryPoint, Wrench
+from .types import CartesianJog, JointState, Pose, TrajectoryPoint, Wrench
 
 __all__ = [
+    "CartesianJog",
     "ArmPort",
     "CollisionCheckerPort",
     "ForceTorquePort",

@@ -83,3 +83,26 @@ class TrajectoryPoint:
         if array.ndim != 1 or array.size == 0 or not np.all(np.isfinite(array)):
             raise ValueError("position_rad must be a non-empty finite vector")
         object.__setattr__(self, "position_rad", array.copy())
+
+
+@dataclass(frozen=True)
+class CartesianJog:
+    """Linear velocity in base_frame; intrinsic angular velocity in current TCP axes.
+
+    TCP X points forward, Y points left, Z points up at this scene's init.
+    The explicit mixed convention keeps vertical translation upright while roll
+    always follows the tool. Units are m/s and rad/s, never displacement per key.
+    """
+    base_frame: str
+    linear_m_s: np.ndarray
+    angular_rad_s: np.ndarray
+
+    def __post_init__(self):
+        if not self.base_frame:
+            raise ValueError('base_frame must not be empty')
+        object.__setattr__(self, 'linear_m_s', _vector(self.linear_m_s, 3, 'linear_m_s'))
+        object.__setattr__(self, 'angular_rad_s', _vector(self.angular_rad_s, 3, 'angular_rad_s'))
+
+    @classmethod
+    def zero(cls, base_frame='world'):
+        return cls(base_frame, np.zeros(3), np.zeros(3))

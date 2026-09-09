@@ -6,6 +6,7 @@ __pycache__/
 venv/
 build/
 dist/
+.pptx-build/
 
 # MuJoCo 调试日志
 MUJOCO_LOG.TXT

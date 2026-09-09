@@ -31,6 +31,18 @@ MUJOCO_GL=egl python examples/capture_scene.py
 
 ![初始夹持](simulation/mujoco/captures/grasp_cam.png)
 
+## 键盘控制末端
+
+```bash
+python examples/keyboard_servo.py
+# 同时显示腕部 Fx/Fy/Fz 和 Tx/Ty/Tz 动态曲线
+python examples/keyboard_servo.py --plot-wrench
+```
+
+按住 W/S 升降、A/D 左右平移、R/F 向插口前进/后退、Q/E 左右偏转；↑/↓ 抬头低头、←/→ 自旋。松键保持，空格停止，Enter 恢复，Esc 退出。默认 10 mm/s、5°/s；平移按世界坐标，姿态按 TCP 自身轴，旋转中心为 `pinch`。
+
+键盘与 Servo 独立，详见 [接口、按键和验证说明](docs/07_键盘与笛卡尔Servo.md)。该入口用于无接触手动点动，不是力控插入。
+
 ## 接口与算法所有权
 
 - `load_model()` / `reset_home()`：加载场景、恢复已夹持初始状态；`home` 的控制量含静态重力平衡偏置。展示入口保持这些控制量，不重新发送未经补偿的关节位置。

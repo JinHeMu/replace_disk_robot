@@ -26,7 +26,7 @@ ARM_ACTUATORS = (
     "wrist_3",
 )
 
-
+# return id
 def _ids(model: mujoco.MjModel, obj_type: mujoco.mjtObj, names: tuple[str, ...]) -> NDArray[np.int_]:
     result = np.array([mujoco.mj_name2id(model, obj_type, name) for name in names], dtype=int)
     if np.any(result < 0):
@@ -41,10 +41,12 @@ class MujocoRobotAdapter:
 
     model: mujoco.MjModel
     data: mujoco.MjData
+    compensate_bias: bool = False
 
     def __post_init__(self) -> None:
         joint_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_JOINT, ARM_JOINTS)
         self._qpos_ids = self.model.jnt_qposadr[joint_ids]
+        self._dof_ids = self.model.jnt_dofadr[joint_ids]
         self._actuator_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, ARM_ACTUATORS)
         self._gripper_id = int(_ids(
             self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, ("fingers_actuator",)
@@ -60,7 +62,14 @@ class MujocoRobotAdapter:
         target = np.asarray(q_target, dtype=float)
         if target.shape != (6,) or not np.all(np.isfinite(target)):
             raise ValueError("q_target must be a finite 6-vector in radians")
-        self.data.ctrl[self._actuator_ids] = target
+        control = target.copy()
+        if self.compensate_bias:
+            # Explicit opt-in equilibrium feedforward for the position servos.
+            gains = self.model.actuator_gainprm[self._actuator_ids, 0]
+            if np.any(gains <= 0):
+                raise ValueError('Positive position-servo gains required for bias compensation')
+            control += self.data.qfrc_bias[self._dof_ids] / gains
+        self.data.ctrl[self._actuator_ids] = control
 
     def command_joint_positions(self, target: JointState) -> None:
         if set(target.names) != set(ARM_JOINTS) or len(target.names) != len(ARM_JOINTS):
