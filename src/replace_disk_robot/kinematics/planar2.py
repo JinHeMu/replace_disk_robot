@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from hard_disk_robot.core.types import JointState, Pose
+from replace_disk_robot.core.types import JointState, Pose
 
 
 class Planar2LinkKinematics:

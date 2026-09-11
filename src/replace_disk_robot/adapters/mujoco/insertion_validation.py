@@ -144,3 +144,86 @@ def run_probe(kind='axial', timestep=.001):
                                              any(n.startswith('socket_') for n in pair)
                                              for pair in all_pairs))
     return result
+
+
+def run_friction_probe(timestep=.0005, friction=.6, force_limit_n=15., torque_limit_nm=2.):
+    """Position-driven insertion/withdrawal QA, with real passive liner contact.
+
+    Override liner friction only for the zero-friction comparison. The arm,
+    aperture, disk dimensions, springs and collision masks remain identical.
+
+    ``force_limit_n`` / ``torque_limit_nm`` bound the run so a parameter study
+    can fail loudly instead of producing an invalid integration. They are not
+    controller limits. The default fixture bound permits entry/reversal peaks
+    above the 7.5 N sliding-load target.
+    """
+    model, data = load_model()
+    model.opt.timestep = timestep
+    # A stiffer position-driven test fixture keeps the narrow disk aligned
+    # under the calibrated load. This does not change the scene arm gains,
+    # CartesianServo, or inject any synthetic contact force.
+    model.actuator_gainprm[:6, 0] *= 4
+    model.actuator_biasprm[:6, 1] *= 4
+    model.actuator_biasprm[:6, 2] *= 2
+    for side in ('left', 'right'):
+        model.geom('socket_liner_' + side).friction[0] = friction
+    reset_home(model, data)
+    ft = MujocoWristFTAdapter(model, data)
+    q = data.qpos[:6].copy()
+    for _ in range(round(.5/timestep)):
+        command_fixture(model, data, q)
+        mujoco.mj_step(model, data)
+    ft.tare()
+    initial = data.site('drive_center').xpos.copy()
+    scratch = mujoco.MjData(model)
+    reset_home(model, scratch)
+    samples = {'insert': [], 'withdraw': []}
+    max_penetration = 0.
+    pairs = set()
+    peak_force = 0.
+    peak_torque = 0.
+    start = 0.
+    for phase, end, duration in [('insert', .07, 21.), ('withdraw', .04, 9.)]:
+        for i in range(round(duration/timestep)):
+            t = (i+1)*timestep/duration
+            blend = t*t*(3-2*t)
+            q = solve_center(model, q, initial + [start+(end-start)*blend, 0, 0], scratch)
+            command_fixture(model, data, q)
+            mujoco.mj_step(model, data)
+            mujoco.mj_forward(model, data)
+            if not np.isfinite(np.r_[data.qpos, data.qvel, data.sensordata]).all():
+                raise RuntimeError('Non-finite friction probe state')
+            force = data.site('wrist_ft_site').xmat.reshape(3,3) @ ft.wrench()[:3]
+            peak_force = max(peak_force, float(np.linalg.norm(force)))
+            peak_torque = max(peak_torque, float(np.linalg.norm(ft.wrench()[3:])))
+            if peak_force > force_limit_n or np.linalg.norm(ft.wrench()[3:]) > torque_limit_nm:
+                raise RuntimeError(
+                    f'Friction probe exceeded {force_limit_n:g} N / {torque_limit_nm:g} Nm: '
+                    f'phase={phase}, t={t}, force={force}, torque={ft.wrench()[3:]}, '
+                    f'contacts={contacts(model, data)}'
+                )
+            for c in contacts(model, data):
+                pairs.add((c['geom1'], c['geom2']))
+                max_penetration = max(max_penetration, c['penetration_m'])
+            depth = data.site('drive_front').xpos[0]-data.site('socket_entry').xpos[0]
+            if .4 < t < .8 and depth > .025:
+                reaction = contact_reaction_at_sensor(model, data)
+                samples[phase].append([depth, force[0], reaction[0]])
+        start = end
+    result = dict(timestep_s=timestep, friction_coefficient=friction,
+                  peak_torque_nm=peak_torque, fixture_position_gain_scale=4,
+                  fixture_velocity_gain_scale=2, nominal_translation_speed_m_s=.0033333333333333335,
+                  peak_force_n=peak_force, peak_penetration_m=max_penetration,
+                  contact_pairs=sorted(pairs), final=observation(model, data, ft))
+    for phase, values in samples.items():
+        mean = np.mean(values, axis=0)
+        result[phase] = dict(samples=len(values), mean_depth_m=float(mean[0]),
+                             mean_sensor_axial_n=float(mean[1]), mean_contact_axial_n=float(mean[2]),
+                             sensor_axial_std_n=float(np.std(np.asarray(values)[:, 1])))
+    result['passed'] = bool(max_penetration < .00005 and all(samples.values()) and
+        abs(result['final']['insertion_depth_m']-.03) < .003 and
+        all('drive_collision' in pair and any(n.startswith('socket_') for n in pair) for pair in pairs) and
+        all(abs(result[k]['mean_sensor_axial_n']-result[k]['mean_contact_axial_n']) < .15 for k in samples) and
+        (friction == 0 or (result['insert']['mean_sensor_axial_n'] > .3 and
+                           result['withdraw']['mean_sensor_axial_n'] < -.3)))
+    return result

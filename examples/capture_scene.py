@@ -9,7 +9,7 @@ import mujoco
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hard_disk_robot.adapters.mujoco import MujocoRobotAdapter, load_model, reset_home
+from replace_disk_robot.adapters.mujoco import MujocoRobotAdapter, load_model, reset_home
 
 
 def main() -> None:

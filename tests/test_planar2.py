@@ -1,7 +1,7 @@
 import numpy as np
 
-from hard_disk_robot.core.types import JointState
-from hard_disk_robot.kinematics.planar2 import Planar2LinkKinematics
+from replace_disk_robot.core.types import JointState
+from replace_disk_robot.kinematics.planar2 import Planar2LinkKinematics
 
 
 def test_basic_properties():

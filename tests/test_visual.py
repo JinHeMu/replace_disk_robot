@@ -9,8 +9,8 @@ import pytest
 matplotlib.use("Agg")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hard_disk_robot.core import CartesianJog, JointState, Pose, TrajectoryPoint, Wrench
-from hard_disk_robot.visual import LiveTypePlotter, to_plot_sample
+from replace_disk_robot.core import CartesianJog, JointState, Pose, TrajectoryPoint, Wrench
+from replace_disk_robot.visual import LiveTypePlotter, to_plot_sample
 
 
 @pytest.mark.parametrize(

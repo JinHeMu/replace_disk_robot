@@ -5,7 +5,7 @@ from typing import Protocol, Sequence
 from numpy.typing import NDArray
 import numpy as np
 
-from .types import JointState, Pose, TrajectoryPoint, Wrench
+from .types import AdmittanceState, JointState, Pose, TrajectoryPoint, Wrench
 
 
 class ArmPort(Protocol):
@@ -67,5 +67,19 @@ class TrajectoryPlannerPort(Protocol):
     def plan(self, start: JointState, goal: JointState) -> Sequence[TrajectoryPoint]: ...
 
 
-class ContactControllerPort(Protocol):
+class ForceControllerPort(Protocol):
     def update(self, nominal: Pose, wrench: Wrench, dt_s: float) -> Pose: ...
+
+
+class AdmittanceControllerPort(ForceControllerPort, Protocol):
+    """Stateful compliant-motion port producing a corrected Cartesian pose.
+
+    ``update`` is inherited from ``ForceControllerPort``. Both the nominal
+    pose and the measured wrench must already be expressed in the controller's
+    configured frame; implementations must reject frame mismatches instead of
+    silently transforming them. ``reset`` restores a zero offset/velocity state
+    for the supplied nominal pose.
+    """
+
+    def reset(self, nominal: Pose) -> None: ...
+    def state(self) -> AdmittanceState: ...

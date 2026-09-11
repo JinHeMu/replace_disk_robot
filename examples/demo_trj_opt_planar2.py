@@ -18,14 +18,14 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hard_disk_robot.core import JointState
-from hard_disk_robot.kinematics.planar2 import Planar2LinkKinematics
-from hard_disk_robot.planning.planar2_collision import (
+from replace_disk_robot.core import JointState
+from replace_disk_robot.kinematics.planar2 import Planar2LinkKinematics
+from replace_disk_robot.planning.planar2_collision import (
     CircleObstacle,
     Planar2LinkCollisionChecker,
 )
-from hard_disk_robot.planning.search import RRTConnectPlanner
-from hard_disk_robot.planning.trj_opt import TrajectoryOptimizer
+from replace_disk_robot.planning.search import RRTConnectPlanner
+from replace_disk_robot.planning.trj_opt import TrajectoryOptimizer
 
 
 def _tip_path(kinematics, path):

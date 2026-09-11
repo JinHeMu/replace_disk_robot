@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import mujoco
 import numpy as np
 
-from hard_disk_robot.adapters.mujoco import load_model, reset_home
-from hard_disk_robot.adapters.mujoco.insertion_validation import solve_center, run_probe
+from replace_disk_robot.adapters.mujoco import load_model, reset_home
+from replace_disk_robot.adapters.mujoco.insertion_validation import solve_center, run_probe
 
 
 class InsertionSceneTest(unittest.TestCase):
@@ -27,10 +27,19 @@ class InsertionSceneTest(unittest.TestCase):
         np.testing.assert_allclose([width,height], [.1065,.0265], atol=1e-12)
         np.testing.assert_allclose((np.array([width,height])-[.106,.026])/2, [.00025,.00025])
         for name in ('left','right','top','bottom'):
-            self.assertAlmostEqual(m.geom('socket_'+name).size[0]*2, .04)
+            self.assertAlmostEqual(m.geom('socket_'+name).size[0]*2, .190)
             self.assertGreater(m.geom('socket_'+name).contype[0], 0)
         np.testing.assert_allclose(d.site('drive_center').xmat.reshape(3,3), np.eye(3), atol=1e-10)
         np.testing.assert_allclose(d.site('drive_front').xpos-d.site('socket_entry').xpos, [-.01,0,0], atol=1e-10)
+        for side in ('left', 'right'):
+            liner = m.geom('socket_liner_'+side)
+            self.assertAlmostEqual(liner.friction[0], .6)
+            self.assertAlmostEqual(abs(m.body('socket_liner_'+side+'_body').pos[1])
+                                   - liner.size[0], .05298)
+            self.assertGreater(liner.contype[0], 0)
+            joint = m.joint('socket_liner_'+side+'_slide')
+            self.assertAlmostEqual(m.jnt_stiffness[joint.id], 12400.)
+            self.assertAlmostEqual(m.qpos_spring[joint.qposadr[0]], -.0005)
         self.assertEqual(m.nu, 7)
         self.assertEqual(m.nsensordata, 6)
         names = [m.body(i).name for i in range(m.nbody)]
@@ -67,11 +76,21 @@ class InsertionSceneTest(unittest.TestCase):
     def test_aligned_swept_path_to_50mm(self):
         m,d = self.model,self.data
         start = d.site('drive_center').xpos.copy()
+        # Geometric feasibility with the compliant liners displaced to their
+        # nominal loaded position. Dynamic contact is checked separately.
+        for side in ('left', 'right'):
+            d.qpos[m.joint('socket_liner_'+side+'_slide').qposadr[0]] = .00003
         for advance in np.linspace(0,.06,121):
             d.qpos[:6] = solve_center(m,d.qpos[:6],start+[advance,0,0])
             mujoco.mj_forward(m,d)
             self.assertEqual(d.ncon,0, f'contact at advance={advance}: {list(d.contact)}')
         self.assertAlmostEqual(d.site('drive_front').xpos[0]-d.site('socket_entry').xpos[0],.05,places=8)
+
+    def test_friction_resistance_and_zero_friction_control(self):
+        from examples.validate_insertion_friction import validate
+        report = validate()
+        self.assertTrue(report['passed'], report)
+        self.assertTrue(report['target_force_passed'], report)
 
     def test_contact_and_half_timestep(self):
         for kind in ('axial','side'):

@@ -8,11 +8,11 @@ This script uses:
 
 Run with a Pinocchio-compatible Python environment, e.g. the conda env:
 
-    (hard_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --save
+    (replace_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --save
 
 Or with interactive window:
 
-    (hard_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --show
+    (replace_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --show
 """
 
 from __future__ import annotations
@@ -29,10 +29,10 @@ from numpy.typing import NDArray
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hard_disk_robot.core import CollisionCheckerPort, JointState, TrajectoryPoint
-from hard_disk_robot.kinematics.ur5e import UR5eKinematics
-from hard_disk_robot.planning.search import RRTConnectPlanner
-from hard_disk_robot.planning.trj_opt import TrajectoryOptimizer
+from replace_disk_robot.core import CollisionCheckerPort, JointState, TrajectoryPoint
+from replace_disk_robot.kinematics.ur5e import UR5eKinematics
+from replace_disk_robot.planning.search import RRTConnectPlanner
+from replace_disk_robot.planning.trj_opt import TrajectoryOptimizer
 
 
 @dataclass

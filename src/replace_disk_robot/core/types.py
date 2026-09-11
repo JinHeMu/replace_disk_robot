@@ -55,6 +55,31 @@ class Wrench:
 
 
 @dataclass(frozen=True)
+class AdmittanceState:
+    """Six-axis admittance offset and velocity in one named frame.
+
+    Components 0..2 are translational offset (m) and velocity (m/s).
+    Components 3..5 are rotational offset as a rotation vector (rad) and
+    angular velocity (rad/s). The explicit frame id keeps the state usable
+    without guessing whether it follows the base, tool, or sensor frame.
+    """
+
+    frame_id: str
+    offset: Vector
+    velocity: Vector
+
+    def __post_init__(self) -> None:
+        if not self.frame_id:
+            raise ValueError("frame_id must not be empty")
+        object.__setattr__(self, "offset", _vector(self.offset, 6, "offset"))
+        object.__setattr__(self, "velocity", _vector(self.velocity, 6, "velocity"))
+
+    @classmethod
+    def zero(cls, frame_id: str) -> "AdmittanceState":
+        return cls(frame_id, np.zeros(6), np.zeros(6))
+
+
+@dataclass(frozen=True)
 class JointState:
     """Named joint state; order is part of the contract."""
 

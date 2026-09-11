@@ -5,15 +5,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 sys.path.insert(0, str(ROOT / 'examples'))
 
-from hard_disk_robot.control import KeyControl
-from hard_disk_robot.core import Wrench
-from hard_disk_robot.visual import ProcessTypePlotter
-import hard_disk_robot.visual.process_plotter as process_module
+from replace_disk_robot.control import KeyControl
+from replace_disk_robot.core import Wrench
+from replace_disk_robot.visual import ProcessTypePlotter
+import replace_disk_robot.visual.process_plotter as process_module
 from keyboard_servo import handle_focus, control_status, ServoDemo
 
 
@@ -42,6 +43,23 @@ def test_plot_focus_pause_recovers_without_replaying_keys():
     assert not app.keys.pressed
     app.keys.press('w')
     assert app.keys.command().linear_m_s[2] > 0
+
+
+def test_contact_is_allowed_and_force_above_20n_stops():
+    app = ServoDemo()
+    assert app.servo.collision_checker is None
+    assert app.servo.config.max_tracking_error_rad == 10.0
+    assert app.guard.force_limit_n == 20.0
+    assert np.isinf(app.guard.torque_limit_nm)
+
+    app.ft.read_wrench = lambda: Wrench('wrist_ft_site', [19.9, 0, 0], [0, 0, 0])
+    app.tick()
+    assert app.servo.fault is None
+
+    app.ft.read_wrench = lambda: Wrench('wrist_ft_site', [20.1, 0, 0], [0, 0, 0])
+    app.tick()
+    assert app.servo.fault == 'force_limit'
+
 
 
 @pytest.mark.parametrize('fault', ['stopped', 'force_limit', 'tracking_error', 'loop_timeout'])

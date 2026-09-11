@@ -2,7 +2,7 @@
 
 This is a simple, dependency-free 2D example.  It implements
 :class:`CollisionCheckerPort`-compatible methods for a
-:class:`~hard_disk_robot.kinematics.planar2.Planar2LinkKinematics` arm.
+:class:`~replace_disk_robot.kinematics.planar2.Planar2LinkKinematics` arm.
 
 Obstacles are represented as circles in the XY plane.  The robot is modelled
 as two finite line segments with a small radius.  ``minimum_distance`` returns
@@ -57,8 +57,8 @@ class Planar2LinkCollisionChecker:
 
     Examples
     --------
-    >>> from hard_disk_robot.kinematics.planar2 import Planar2LinkKinematics
-    >>> from hard_disk_robot.planning.planar2_collision import (
+    >>> from replace_disk_robot.kinematics.planar2 import Planar2LinkKinematics
+    >>> from replace_disk_robot.planning.planar2_collision import (
     ...     Planar2LinkCollisionChecker, CircleObstacle)
     >>> kinematics = Planar2LinkKinematics(link1_m=1.0, link2_m=0.8)
     >>> checker = Planar2LinkCollisionChecker(

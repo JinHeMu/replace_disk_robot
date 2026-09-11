@@ -19,7 +19,7 @@ import mujoco
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from hard_disk_robot.adapters.mujoco import (  # noqa: E402
+from replace_disk_robot.adapters.mujoco import (  # noqa: E402
     MujocoRobotAdapter,
     load_model,
     reset_home,

@@ -5,8 +5,8 @@ from pathlib import Path
 import mujoco
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from hard_disk_robot.adapters.mujoco import load_model, reset_home, MujocoRobotAdapter, MujocoWristFTAdapter
-from hard_disk_robot.safety import ForceLimitGuard
+from replace_disk_robot.adapters.mujoco import load_model, reset_home, MujocoRobotAdapter, MujocoWristFTAdapter
+from replace_disk_robot.safety import ForceLimitGuard
 
 
 def main():

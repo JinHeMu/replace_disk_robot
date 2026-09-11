@@ -5,11 +5,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 import mujoco
 import numpy as np
 
-from hard_disk_robot.core import JointState, Pose
-from hard_disk_robot.core.rotation import rotation_matrix
-from hard_disk_robot.kinematics.ur5e import UR5eKinematics
-from hard_disk_robot.kinematics.tool import FixedToolKinematics
-from hard_disk_robot.adapters.mujoco import load_model, reset_home
+from replace_disk_robot.core import JointState, Pose
+from replace_disk_robot.core.rotation import rotation_matrix
+from replace_disk_robot.kinematics.ur5e import UR5eKinematics
+from replace_disk_robot.kinematics.tool import FixedToolKinematics
+from replace_disk_robot.adapters.mujoco import load_model, reset_home
 
 
 def test_offset_tcp_pose_jacobian_and_inverse_match_mujoco():

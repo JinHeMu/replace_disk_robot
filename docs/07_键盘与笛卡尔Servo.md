@@ -5,7 +5,8 @@
 在有桌面显示的终端中运行：
 
 ```bash
-conda activate hard_disk_robot
+export CONDA_ENVS_PATH="$PWD/.conda_envs"
+conda activate replace_disk_robot
 python examples/check_isolated_environment.py
 python examples/keyboard_servo.py
 ```
@@ -43,7 +44,7 @@ python examples/keyboard_servo.py --plot-wrench
 ```text
 KeyControl（按键状态，可换成手柄或其他输入）
     ↓ CartesianJog
-CartesianServo（运动学、阻尼求解、限速、限位、碰撞检查）
+CartesianServo（运动学、阻尼求解、限速、限位；可选碰撞检查）
     ↓ JointState
 应用中的限力门
     ↓ ArmPort.command_joint_positions
@@ -63,7 +64,7 @@ Servo 不导入 MuJoCo、GLFW、Pinocchio 或 ROS；只面向现有运动学、�
 不经过键盘使用 Servo：
 
 ```python
-from hard_disk_robot.core import CartesianJog
+from replace_disk_robot.core import CartesianJog
 
 servo.reset(arm.read_joint_state())
 # 控制循环中刷新命令；线速度在 world、角速度在当前 TCP。
@@ -76,13 +77,13 @@ target = servo.update(arm.read_joint_state(), dt_s=0.01, now_s=now_s)
 
 每周期在上一个关节目标处计算 TCP Jacobian，把 TCP 角速度旋转到 base frame，然后使用阻尼最小二乘求解关节增量。默认 100 Hz 控制、1000 Hz 仿真、最多 60 Hz 显示；渲染与控制调度分开。
 
-默认关节速度上限 0.2 rad/s。线/角速度先按范数限幅，关节增量再统一缩放。候选位置越过关节限位时拒绝这一周期；碰撞检查覆盖旧目标至候选目标、实测位置至候选目标两段，默认最大关节采样间隔 0.002 rad。阻挡时不累积未执行的目标，可向相反方向离开边界。
+默认关节速度上限 0.2 rad/s。线/角速度先按范数限幅，关节增量再统一缩放。候选位置越过关节限位时拒绝这一周期。若调用方显式传入碰撞检查器，`CartesianServo` 会检查旧目标至候选目标、实测位置至候选目标两段，默认最大关节采样间隔 0.002 rad；本示例**未启用**该检查。
 
-未刷新命令超过 150 ms 后保持最后的关节目标，实测与目标偏差超过 0.08 rad 则锁存停止。窗口循环停顿超过 150 ms 或按空格也会锁存停止。失焦暂停在重新获得焦点时单独恢复，不清除其他故障。松键后保持已生成的目标，实际机械臂仍有有限的伺服跟踪/制动过程，不宣称瞬时停止。
+未刷新命令超过 150 ms 后保持最后的关节目标；默认实测与目标偏差超过 0.08 rad 会锁存 `tracking_error`，本示例把该阈值放大到 10 rad，避免接触卡住时早于 20 N 力阈值触发。窗口循环停顿超过 150 ms 或按空格也会锁存停止。失焦暂停在重新获得焦点时单独恢复，不清除其他故障。松键后保持已生成的目标，实际机械臂仍有有限的伺服跟踪/制动过程，不宣称瞬时停止。
 
 `MujocoRobotAdapter(..., compensate_bias=True)` 显式启用当前位置伺服的重力/偏置力前馈；原有默认接口行为不变。手臂和夹爪模型、场景初始位置均保持原样。
 
-示例复用 10 N / 1 N·m 限力门，启动静止去皮；它只扣除初始姿态基线。大角度转动后的工具重力变化可能触发保守停止，Enter 不会重新去皮掩盖载荷。此示例默认拒绝接触，是手动笛卡尔点动，不是力控插入或完整实机安全控制器。
+示例不再启用 `CartesianServo` 的碰撞检查，因此工具可以接触障碍物并让接触力上升。启动静止去皮后，测得的腕部力范数超过 20 N 时锁存 `force_limit` 并停止；当前示例把力矩阈值设为无穷大，只按力判断。Enter 不会重新去皮掩盖载荷，此入口仍不是力控插入或完整实机安全控制器。
 
 ## 验证
 
@@ -106,8 +107,9 @@ python examples/keyboard_servo.py --headless --output simulation/mujoco/reports/
 修复后，终端、窗口标题和画面显示停止原因及恢复提示。若仍无响应，先看状态：
 
 - `focus_lost`：点击机械臂窗口，再重新按运动键。
-- `loop_timeout`、`stopped`、`force_limit`、`tracking_error`：处理对应原因后，在机械臂窗口按 Enter；不会自动放宽阈值。
-- `collision_blocked`、`joint_limit`：该方向受阻，尝试相反方向，不累积未执行目标。
+- `force_limit`：接触力超过 20 N，先反向离开接触，再按 Enter 恢复；不会自动放宽阈值。
+- `joint_limit`：该方向受阻，尝试相反方向，不累积未执行目标。
+- `loop_timeout`、`stopped`、`tracking_error`：检查窗口/控制循环状态后，在机械臂窗口按 Enter 恢复。
 - `[plot] Plot disabled`：绘图进程启动或刷新失败，终端会打印错误；机械臂窗口继续运行。
 
 回归测试包含阻塞绘图进程与满队列、失焦/恢复且不重放按键、保留显式故障，以及 Q/W/E/R 在失焦恢复后经过实际 MuJoCo 的运动检查。真实桌面焦点行为仍需本机窗口验证。

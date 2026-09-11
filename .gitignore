@@ -14,3 +14,6 @@ MUJOCO_LOG.TXT
 # IDE
 .idea/
 .vscode/
+
+# Local conda environments (read-only system envs dir workaround)
+.conda_envs/

@@ -49,8 +49,8 @@ TRACKING_ORIENTATION_LIMIT_RAD = 0.05
 
 def _pinocchio_worker() -> None:
     """Run Pinocchio only and exchange JSON with the MuJoCo parent process."""
-    from hard_disk_robot.core import JointState
-    from hard_disk_robot.kinematics import UR5eKinematics
+    from replace_disk_robot.core import JointState
+    from replace_disk_robot.kinematics import UR5eKinematics
 
     request = json.load(sys.stdin)
     target_q = np.asarray(request["target_q"], dtype=float)
@@ -171,7 +171,7 @@ def _step_to_target(
 ) -> bool:
     import mujoco
 
-    from hard_disk_robot.core import JointState
+    from replace_disk_robot.core import JointState
 
     if duration_s == 0:
         return True
@@ -324,7 +324,7 @@ def _run_animation(
 def _run_experiment(args: argparse.Namespace) -> None:
     import mujoco
 
-    from hard_disk_robot.adapters.mujoco import (
+    from replace_disk_robot.adapters.mujoco import (
         MujocoRobotAdapter,
         load_model,
         reset_home,

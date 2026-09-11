@@ -1,0 +1,236 @@
+{
+  "passed": true,
+  "target_sliding_force_n": 7.5,
+  "sliding_force_tolerance_n": 0.5,
+  "target_force_passed": true,
+  "fixture_force_limit_n": 15.0,
+  "fixture_torque_limit_nm": 2.0,
+  "timestep_comparison_passed": true,
+  "friction_comparison_passed": true,
+  "validation_scope": "Position-driven contact friction QA, not closed-loop insertion",
+  "tests": [
+    {
+      "timestep_s": 0.0005,
+      "friction_coefficient": 0.6,
+      "peak_torque_nm": 1.5187664150123388,
+      "fixture_position_gain_scale": 4,
+      "fixture_velocity_gain_scale": 2,
+      "nominal_translation_speed_m_s": 0.0033333333333333335,
+      "peak_force_n": 12.818889630247392,
+      "peak_penetration_m": 2.2958592145863816e-05,
+      "contact_pairs": [
+        [
+          "socket_liner_left",
+          "drive_collision"
+        ],
+        [
+          "socket_liner_right",
+          "drive_collision"
+        ]
+      ],
+      "final": {
+        "raw_wrench": [
+          14.605565050556395,
+          0.45716398488669846,
+          -7.740439168617751,
+          -0.044662386462103174,
+          1.1046333674424693,
+          0.0012917897440938946
+        ],
+        "tared_wrench": [
+          -0.13502275347095072,
+          0.4571639848869908,
+          -7.74043916862128,
+          -0.04466238646215715,
+          -0.041806529447877105,
+          0.0014174034184405867
+        ],
+        "frame": "wrist_ft_site",
+        "insertion_depth_m": 0.030108590101911914,
+        "lateral_offset_m": [
+          -1.798522291251532e-05,
+          -0.000154298859612656
+        ],
+        "contacts": [
+          {
+            "geom1": "socket_liner_left",
+            "geom2": "drive_collision",
+            "penetration_m": 2.8744544729912905e-07
+          },
+          {
+            "geom1": "socket_liner_right",
+            "geom2": "drive_collision",
+            "penetration_m": 3.5216235633205896e-07
+          }
+        ]
+      },
+      "insert": {
+        "samples": 12366,
+        "mean_depth_m": 0.039549750972156336,
+        "mean_sensor_axial_n": 7.470124136434912,
+        "mean_contact_axial_n": 7.507280877523133,
+        "sensor_axial_std_n": 1.7415648029270419
+      },
+      "withdraw": {
+        "samples": 7199,
+        "mean_depth_m": 0.041343765739006826,
+        "mean_sensor_axial_n": -7.414150025083934,
+        "mean_contact_axial_n": -7.452828829450262,
+        "sensor_axial_std_n": 1.8867650830931089
+      },
+      "passed": true
+    },
+    {
+      "timestep_s": 0.00025,
+      "friction_coefficient": 0.6,
+      "peak_torque_nm": 1.6386329123275736,
+      "fixture_position_gain_scale": 4,
+      "fixture_velocity_gain_scale": 2,
+      "nominal_translation_speed_m_s": 0.0033333333333333335,
+      "peak_force_n": 11.944172339991914,
+      "peak_penetration_m": 1.1178931224254752e-05,
+      "contact_pairs": [
+        [
+          "socket_liner_left",
+          "drive_collision"
+        ],
+        [
+          "socket_liner_right",
+          "drive_collision"
+        ]
+      ],
+      "final": {
+        "raw_wrench": [
+          14.645643177510053,
+          0.46003414444193363,
+          -7.742501109938995,
+          -0.04553981597127324,
+          1.117460000354846,
+          0.0008540321583972977
+        ],
+        "tared_wrench": [
+          -0.09494462653196045,
+          0.46003414444020474,
+          -7.742501109945654,
+          -0.04553981597122993,
+          -0.0289798965397019,
+          0.0009796458326997272
+        ],
+        "frame": "wrist_ft_site",
+        "insertion_depth_m": 0.03011002714190636,
+        "lateral_offset_m": [
+          -1.806292266137323e-05,
+          -0.0001610693075099756
+        ],
+        "contacts": [
+          {
+            "geom1": "socket_liner_left",
+            "geom2": "drive_collision",
+            "penetration_m": 2.770625933451367e-07
+          },
+          {
+            "geom1": "socket_liner_right",
+            "geom2": "drive_collision",
+            "penetration_m": 3.3745364082259956e-07
+          }
+        ]
+      },
+      "insert": {
+        "samples": 24730,
+        "mean_depth_m": 0.03954908167863912,
+        "mean_sensor_axial_n": 7.57989735512721,
+        "mean_contact_axial_n": 7.596044907782548,
+        "sensor_axial_std_n": 1.4884852781494624
+      },
+      "withdraw": {
+        "samples": 14399,
+        "mean_depth_m": 0.04134712898408947,
+        "mean_sensor_axial_n": -7.571068882702114,
+        "mean_contact_axial_n": -7.587959146189667,
+        "sensor_axial_std_n": 1.5475017652337548
+      },
+      "passed": true
+    },
+    {
+      "timestep_s": 0.0005,
+      "friction_coefficient": 0.0,
+      "peak_torque_nm": 0.1969267861310715,
+      "fixture_position_gain_scale": 4,
+      "fixture_velocity_gain_scale": 2,
+      "nominal_translation_speed_m_s": 0.0033333333333333335,
+      "peak_force_n": 2.177403181449505,
+      "peak_penetration_m": 1.3688815894633954e-06,
+      "contact_pairs": [
+        [
+          "socket_liner_left",
+          "drive_collision"
+        ],
+        [
+          "socket_liner_right",
+          "drive_collision"
+        ]
+      ],
+      "final": {
+        "raw_wrench": [
+          14.741355412717155,
+          -0.0030395384901362454,
+          0.005158999063233834,
+          0.00040921331024424085,
+          1.146514875269531,
+          -0.0001266559444844267
+        ],
+        "tared_wrench": [
+          0.000767608689809407,
+          -0.003039538489843927,
+          0.005158999059704887,
+          0.00040921331019026574,
+          7.497837918468697e-05,
+          -1.0422701377345094e-06
+        ],
+        "frame": "wrist_ft_site",
+        "insertion_depth_m": 0.030021320571096966,
+        "lateral_offset_m": [
+          7.368039908776888e-08,
+          3.300503994552173e-07
+        ],
+        "contacts": [
+          {
+            "geom1": "socket_liner_left",
+            "geom2": "drive_collision",
+            "penetration_m": 3.9853877456552146e-07
+          },
+          {
+            "geom1": "socket_liner_left",
+            "geom2": "drive_collision",
+            "penetration_m": 3.96650148122785e-07
+          },
+          {
+            "geom1": "socket_liner_right",
+            "geom2": "drive_collision",
+            "penetration_m": 4.032398387078702e-07
+          },
+          {
+            "geom1": "socket_liner_right",
+            "geom2": "drive_collision",
+            "penetration_m": 4.0135121345146775e-07
+          }
+        ]
+      },
+      "insert": {
+        "samples": 12400,
+        "mean_depth_m": 0.03959881133567933,
+        "mean_sensor_axial_n": -0.040675214532167214,
+        "mean_contact_axial_n": 0.0001300801841815748,
+        "sensor_axial_std_n": 0.005011677981843841
+      },
+      "withdraw": {
+        "samples": 7199,
+        "mean_depth_m": 0.04125464352182415,
+        "mean_sensor_axial_n": 0.0420425156921148,
+        "mean_contact_axial_n": -0.00012789785000798365,
+        "sensor_axial_std_n": 0.0034357553078953515
+      },
+      "passed": true
+    }
+  ]
+}

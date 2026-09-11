@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from hard_disk_robot.adapters.mujoco.insertion_validation import run_probe
+from replace_disk_robot.adapters.mujoco.insertion_validation import run_probe
 
 
 def main():

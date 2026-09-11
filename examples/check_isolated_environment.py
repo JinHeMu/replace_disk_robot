@@ -58,8 +58,9 @@ def main() -> None:
     errors: list[str] = []
     prefix = Path(sys.prefix).resolve()
     executable = Path(sys.executable).resolve()
-    if os.environ.get("CONDA_DEFAULT_ENV") != "hard_disk_robot":
-        errors.append("the active Conda environment must be hard_disk_robot")
+    active_env = os.environ.get("CONDA_DEFAULT_ENV", "")
+    if Path(active_env).name != "replace_disk_robot" or prefix.name != "replace_disk_robot":
+        errors.append("the active Conda environment must be replace_disk_robot")
     if not _inside(executable, prefix):
         errors.append(f"Python executable is outside CONDA_PREFIX: {executable}")
     if site.ENABLE_USER_SITE:
@@ -80,9 +81,9 @@ def main() -> None:
         if not _inside(location, prefix):
             errors.append(f"{module.__name__} loaded outside Conda: {location}")
 
-    from hard_disk_robot.adapters.mujoco import load_model
-    from hard_disk_robot.core import JointState
-    from hard_disk_robot.kinematics import UR5eKinematics
+    from replace_disk_robot.adapters.mujoco import load_model
+    from replace_disk_robot.core import JointState
+    from replace_disk_robot.kinematics import UR5eKinematics
 
     model, _ = load_model()
     kinematics = UR5eKinematics()

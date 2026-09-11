@@ -15,7 +15,7 @@ class LiveTypePlotter:
 
     A plotter binds to the structure of its first sample. Create separate
     instances when displaying different types or JointState name sets.
-    Matplotlib is imported lazily so importing ``hard_disk_robot.visual`` does
+    Matplotlib is imported lazily so importing ``replace_disk_robot.visual`` does
     not select a GUI backend.
     """
 

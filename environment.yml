@@ -1,4 +1,7 @@
-name: hard_disk_robot
+# System Conda envs directory is read-only in this workspace.
+# Create/update with:
+#   CONDA_ENVS_PATH="$PWD/.conda_envs" conda env create -f environment.yml
+name: replace_disk_robot
 
 channels:
   - conda-forge

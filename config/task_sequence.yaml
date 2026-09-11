@@ -1,5 +1,5 @@
 schema_version: 2
-project: hard_disk_robot
+project: replace_disk_robot
 task: precision_disk_insertion
 runtime_backend: mujoco
 # Scene constants are embodied in MJCF; this file documents the experiment contract.
@@ -15,7 +15,17 @@ geometry:
   drive_dimensions_m: [0.177, 0.106, 0.026]
   drive_mass_kg: 0.20
   opening_dimensions_m: [0.1065, 0.0265]
-  channel_depth_m: 0.040
+  channel_depth_m: 0.190
+  liner_friction_coefficient: 0.6
+  liner_interference_per_side_m: 0.00002
+  liner_stiffness_n_per_m: 12400
+  liner_damping_ns_per_m: 24.8
+  liner_mass_kg: 0.124
+  simulation_timestep_s: 0.0005
+  # Mean low-speed sliding resistance; entry/reversal peaks are higher.
+  target_sliding_force_n: 7.5
+  sliding_force_tolerance_n: 0.5
+  liner_spring_reference_m: -0.0005
   initial_front_gap_m: 0.010
   target_insertion_depth_m: 0.050
   grasp: ideal_rigid_rear_short_edge_thickness

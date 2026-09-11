@@ -1,7 +1,7 @@
 <mujoco model="precision_disk_insertion">
   <include file="models/ur5e/ur5e_with_gripper.xml"/>
   <compiler angle="radian" autolimits="true"/>
-  <option timestep="0.001" integrator="implicitfast" cone="elliptic" impratio="10" iterations="100" tolerance="1e-10"/>
+  <option timestep="0.0005" integrator="implicitfast" cone="elliptic" impratio="10" iterations="100" tolerance="1e-10"/>
   <statistic center="0.3 0 0.35" extent="1.1"/>
   <visual><headlight diffuse="0.7 0.7 0.7" ambient="0.4 0.4 0.4"/><global offwidth="1200" offheight="900"/></visual>
   <worldbody>
@@ -10,22 +10,46 @@
     <camera name="overview_cam" pos="1.25 -1.25 1.05" xyaxes="0.707 0.707 0 -0.3 0.3 0.9"/>
     <camera name="insertion_cam" pos="0.85 -0.45 0.7" mode="targetbody" target="insertion_socket" fovy="38"/>
     <camera name="grasp_cam" pos="0.3 -0.4 0.65" mode="targetbody" target="replacement_drive_held" fovy="40"/>
-    <!-- 106.5 x 26.5 mm clear aperture; 40 mm straight channel, 12 mm walls. -->
+    <!-- 106.5 x 26.5 mm clear aperture; 190 mm straight housing, 12 mm walls. -->
     <body name="insertion_socket" pos="0.6485 0 0.45">
       <site name="socket_entry" size="0.002" rgba="0 0 0 0"/>
-      <geom name="socket_left" type="box" pos="0.02 0.05925 0" size="0.02 0.006 0.02525" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
-      <geom name="socket_right" type="box" pos="0.02 -0.05925 0" size="0.02 0.006 0.02525" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
-      <geom name="socket_top" type="box" pos="0.02 0 0.01925" size="0.02 0.05325 0.006" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
-      <geom name="socket_bottom" type="box" pos="0.02 0 -0.01925" size="0.02 0.05325 0.006" rgba="0.6 0.66 0.75 1" friction="0.3 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_left" type="box" pos="0.095 0.05925 0" size="0.095 0.006 0.02525" rgba="0.6 0.66 0.75 1" friction="0.6 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_right" type="box" pos="0.095 -0.05925 0" size="0.095 0.006 0.02525" rgba="0.6 0.66 0.75 1" friction="0.6 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_top" type="box" pos="0.095 0 0.01925" size="0.095 0.05325 0.006" rgba="0.6 0.66 0.75 1" friction="0.6 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+      <geom name="socket_bottom" type="box" pos="0.095 0 -0.01925" size="0.095 0.05325 0.006" rgba="0.6 0.66 0.75 1" friction="0.6 0.005 0.0001" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    </body>
+    <!-- Compliant side liners: 0.02 mm interference per side; ~6.45 N preload
+         when displaced by an aligned disk. Rounded tips start 10.8 mm inside.
+         Passive slides model liner compliance, not additional arm actuators. -->
+    <body name="socket_liner_left_body" pos="0.6485 0.05418 0.45" gravcomp="1">
+      <joint name="socket_liner_left_slide" type="slide" axis="0 1 0"
+             range="0 0.002" stiffness="12400" springref="-0.0005" damping="24.8"
+             solreflimit="0.002 1" solimplimit="0.99 0.999 0.0001"/>
+      <geom name="socket_liner_left" type="capsule" fromto="0.012 0 0 0.178 0 0"
+            size="0.0012" mass="0.124" rgba="0.22 0.3 0.38 1" priority="1"
+            condim="3" friction="0.6 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
+    </body>
+    <body name="socket_liner_right_body" pos="0.6485 -0.05418 0.45" gravcomp="1">
+      <joint name="socket_liner_right_slide" type="slide" axis="0 -1 0"
+             range="0 0.002" stiffness="12400" springref="-0.0005" damping="24.8"
+             solreflimit="0.002 1" solimplimit="0.99 0.999 0.0001"/>
+      <geom name="socket_liner_right" type="capsule" fromto="0.012 0 0 0.178 0 0"
+            size="0.0012" mass="0.124" rgba="0.22 0.3 0.38 1" priority="1"
+            condim="3" friction="0.6 0 0" solref="0.002 1" solimp="0.99 0.999 0.0001"/>
     </body>
     <!-- Hidden reference for optional FK/IK experiments. -->
     <body name="task_target" pos="0.55 0 0.45" mocap="true"><site name="task_marker" size="0.005" rgba="1 0.2 0.1 0"/></body>
   </worldbody>
+  <contact>
+    <!-- Liners are mounted inside the housing; only their mount overlap is excluded. -->
+    <exclude body1="insertion_socket" body2="socket_liner_left_body"/>
+    <exclude body1="insertion_socket" body2="socket_liner_right_body"/>
+  </contact>
   <!-- Arm home was solved for drive_center=(0.55,0,0.45), R=I.
        ctrl includes qfrc_bias / actuator gain; do not replace it with qpos. -->
   <keyframe>
     <key name="home"
-         qpos="2.45232094662072 -1.99294546015135 2.53041379518691 2.60412431855423 -0.88152461982582 -1.5707963267949 0.562814685780366 0.0159765523193459 0.571868321668719 -0.571868321668719 0.562814685780366 0.0159765523193459 0.571868321668719 -0.571868321668719"
+         qpos="2.45232094662072 -1.99294546015135 2.53041379518691 2.60412431855423 -0.88152461982582 -1.5707963267949 0.562814685780366 0.0159765523193459 0.571868321668719 -0.571868321668719 0.562814685780366 0.0159765523193459 0.571868321668719 -0.571868321668719 0 0"
          ctrl="2.45232094662072 -1.99365664932975 2.52064811059131 2.59985892105767 -0.88152461982582 -1.57079657802225 179.39717548633"/>
   </keyframe>
 </mujoco>

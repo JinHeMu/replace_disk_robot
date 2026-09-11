@@ -6,9 +6,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 import numpy as np
 import pytest
 
-from hard_disk_robot.core import CartesianJog, JointState, Pose
-from hard_disk_robot.control import CartesianServo, KeyControl, ServoConfig
-from hard_disk_robot.control.key_control import KEY_AXES
+from replace_disk_robot.core import CartesianJog, JointState, Pose
+from replace_disk_robot.control import CartesianServo, KeyControl, ServoConfig
+from replace_disk_robot.control.key_control import KEY_AXES
 
 
 class LinearKinematics:
@@ -154,7 +154,7 @@ def test_invalid_frames_nonfinite_and_time_rejected():
 
 
 def test_control_is_backend_and_window_independent():
-    root = Path(__file__).resolve().parents[1]/'src/hard_disk_robot/control'
+    root = Path(__file__).resolve().parents[1]/'src/replace_disk_robot/control'
     source = '\n'.join(p.read_text() for p in root.glob('*.py'))
     for backend in ['import mujoco','import glfw','import pinocchio','import rclpy']:
         assert backend not in source

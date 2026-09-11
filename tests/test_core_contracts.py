@@ -6,13 +6,13 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hard_disk_robot.core import JointState, Pose, TrajectoryPoint, Wrench
-from hard_disk_robot.task import TaskPrimitive, TaskState
+from replace_disk_robot.core import JointState, Pose, TrajectoryPoint, Wrench
+from replace_disk_robot.task import TaskPrimitive, TaskState
 
 
 class CoreContractsTest(unittest.TestCase):
     def test_core_does_not_import_runtime_backends(self) -> None:
-        package_dir = Path(__file__).resolve().parents[1] / "src" / "hard_disk_robot"
+        package_dir = Path(__file__).resolve().parents[1] / "src" / "replace_disk_robot"
         root_source = (package_dir / "__init__.py").read_text()
         self.assertNotIn("adapters.mujoco", root_source)
         core_dir = package_dir / "core"

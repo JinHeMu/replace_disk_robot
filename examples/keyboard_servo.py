@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hold-to-jog Cartesian servo in the MuJoCo window; --headless runs key smoke checks."""
+"""Hold-to-jog Cartesian servo in the MuJoCo window; contact stops at force > 20 N."""
 from __future__ import annotations
 
 import argparse
@@ -13,14 +13,17 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
-from hard_disk_robot.adapters.mujoco import (
-    load_model, reset_home, MujocoRobotAdapter, MujocoWristFTAdapter, MujocoCollisionChecker,
+from replace_disk_robot.adapters.mujoco import (
+    load_model, reset_home, MujocoRobotAdapter, MujocoWristFTAdapter,
 )
-from hard_disk_robot.control import CartesianServo, KeyControl, ServoConfig
-from hard_disk_robot.core import Pose
-from hard_disk_robot.kinematics.ur5e import UR5eKinematics
-from hard_disk_robot.kinematics.tool import FixedToolKinematics
-from hard_disk_robot.safety import ForceLimitGuard
+from replace_disk_robot.control import CartesianServo, KeyControl, ServoConfig
+from replace_disk_robot.core import Pose
+from replace_disk_robot.kinematics.ur5e import UR5eKinematics
+from replace_disk_robot.kinematics.tool import FixedToolKinematics
+from replace_disk_robot.safety import ForceLimitGuard
+
+
+FORCE_STOP_N = 20.0
 
 
 class ServoDemo:
@@ -33,14 +36,17 @@ class ServoDemo:
         # TCP at the existing pinch site; X forward matches disk length at init.
         self.kinematics = FixedToolKinematics(parent, 'g_base',
             Pose('g_base', [0,0,.145], [.5,-.5,-.5,-.5]))
-        probe = mujoco.MjData(self.model)
-        reset_home(self.model, probe)
-        checker = MujocoCollisionChecker(self.model, probe)
+        # No collision checker here: the tool may touch an obstacle and build force.
+        # Tracking error is deliberately loose so contact cannot latch the servo
+        # before the force gate; the stop condition is the measured force below.
         self.servo = CartesianServo(self.kinematics, parent.joint_limits_rad,
-            ServoConfig(linear_speed_m_s=linear_speed, angular_speed_rad_s=angular_speed), checker)
+            ServoConfig(linear_speed_m_s=linear_speed, angular_speed_rad_s=angular_speed,
+                        max_tracking_error_rad=10.0))
         self.keys = KeyControl(linear_speed, angular_speed)
         self.ft = MujocoWristFTAdapter(self.model, self.data)
-        self.guard = ForceLimitGuard()
+        # Only the measured force norm is used: stop above 20 N.
+        # The torque threshold is disabled for this requested behavior.
+        self.guard = ForceLimitGuard(force_limit_n=FORCE_STOP_N, torque_limit_nm=np.inf)
         for _ in range(round(.5/self.model.opt.timestep)):
             self.robot.command_joint_positions(self.robot.read_joint_state())
             mujoco.mj_step(self.model, self.data)
@@ -53,7 +59,7 @@ class ServoDemo:
 
     def _verify_tcp(self):
         pose = self.kinematics.forward(self.robot.read_joint_state())
-        from hard_disk_robot.core.rotation import rotation_matrix
+        from replace_disk_robot.core.rotation import rotation_matrix
         if (not np.allclose(pose.position_m, self.data.site('pinch').xpos, atol=1e-7) or
                 not np.allclose(rotation_matrix(pose.quaternion_wxyz),
                                 self.data.site('drive_center').xmat.reshape(3,3), atol=1e-7)):
@@ -91,8 +97,8 @@ class ServoDemo:
 
 def headless_report():
     """Exercise all twelve actual key mappings through servo and MuJoCo dynamics."""
-    from hard_disk_robot.control.key_control import KEY_AXES
-    from hard_disk_robot.core.rotation import rotation_matrix
+    from replace_disk_robot.control.key_control import KEY_AXES
+    from replace_disk_robot.core.rotation import rotation_matrix
     results = []
     for key, (translation, rotation) in KEY_AXES.items():
         app = ServoDemo()
@@ -164,7 +170,7 @@ def run_window(app, plot_wrench=False):
         camera.distance, camera.azimuth, camera.elevation = 1.25, 135, -25
         option = mujoco.MjvOption()
         if plot_wrench:
-            from hard_disk_robot.visual import ProcessTypePlotter
+            from replace_disk_robot.visual import ProcessTypePlotter
             plotter = ProcessTypePlotter(window_s=10.0, refresh_hz=10.0)
         keymap = {
             getattr(glfw, 'KEY_' + key.upper()): key
@@ -218,6 +224,7 @@ def run_window(app, plot_wrench=False):
         print('Click ROBOT window to control. Plot window does not accept robot keys.')
         print('Hold to move; release to hold. Space stop; Enter resume; Esc exit.')
         print('Focus loss pauses; clicking ROBOT window resumes only that focus pause.')
+        print(f'Obstacle contact is allowed; measured force > {FORCE_STOP_N:g} N stops the servo.')
         previous_status = None
         plot_error_reported = False
         while not glfw.window_should_close(window):
@@ -246,7 +253,7 @@ def run_window(app, plot_wrench=False):
                 mujoco.mjv_updateScene(app.model,app.data,option,None,camera,mujoco.mjtCatBit.mjCAT_ALL,scene)
                 mujoco.mjr_render(viewport,scene,context)
                 mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_NORMAL, mujoco.mjtGridPos.mjGRID_TOPLEFT,
-                    viewport, 'W/S up/down | A/D left/right | R/F insert/retract\nQ/E yaw | Arrows: pitch / roll\nSpace stop | Enter resume | Esc exit',
+                    viewport, 'W/S up/down | A/D left/right | R/F insert/retract\nQ/E yaw | Arrows: pitch / roll\nSpace stop | Enter resume | Esc exit | Force stop: 20 N',
                     status, context)
                 glfw.swap_buffers(window)
             time.sleep(.001)

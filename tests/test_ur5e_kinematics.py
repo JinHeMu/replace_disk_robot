@@ -7,8 +7,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hard_disk_robot.core.types import JointState
-from hard_disk_robot.kinematics.ur5e import PROJECT_UR5E_URDF, UR5eKinematics
+from replace_disk_robot.core.types import JointState
+from replace_disk_robot.kinematics.ur5e import PROJECT_UR5E_URDF, UR5eKinematics
 
 
 def _rotation_matrix(quaternion_wxyz: np.ndarray) -> np.ndarray:

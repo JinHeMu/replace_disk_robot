@@ -8,6 +8,11 @@ from numpy.typing import ArrayLike, NDArray
 
 @dataclass
 class ForceLimitGuard:
+    """Trip when force norm or torque norm exceeds its configured limit.
+
+    Set ``torque_limit_nm`` to ``numpy.inf`` to disable torque tripping while
+    keeping the force threshold active.
+    """
     force_limit_n: float = 10.0
     torque_limit_nm: float = 1.0
 

@@ -2,14 +2,19 @@
 
 固定 UR5e + Robotiq 2F-85 + 腕部六维力传感器的 MuJoCo 实验场景。启动时机械臂已经夹好硬盘，用于后续开发力控插入。旧服务器、托架、锁扣、暂存台和完整换盘示例已移除。
 
-硬盘为 **177 × 106 × 26 mm** 长方体；沿 177 mm 长度方向水平插入 **106.5 × 26.5 mm** 的矩形通道，居中时每侧间隙 **0.25 mm**。通道深 40 mm，无倒角、无后挡板。夹爪从后端 106 mm 短边的中间伸入，沿 26 mm 厚度夹紧，采用理想刚性夹持。
+硬盘为 **177 × 106 × 26 mm** 长方体；沿 177 mm 长度方向水平插入 **106.5 × 26.5 mm** 的矩形通道，硬质仓壁每侧间隙 **0.25 mm**。仓体深 **190 mm**，无入口倒角、无后挡板；内部两侧弹性摩擦导轨会压紧硬盘，推进需要克服摩擦阻力，当前按实测目标标定为低速滑动时约 **7.5 N**（瞬时峰值可更高）。夹爪从后端 106 mm 短边的中间伸入，沿 26 mm 厚度夹紧，采用理想刚性夹持。
 
 初始硬盘前端距入口 10 mm；未来目标插深为 50 mm，夹爪保持在口外。本次实现的是场景和接触测力验证，**没有实现闭环力控插入、抓取打滑或真实硬件控制**。
 
+详见 [加长硬盘仓与摩擦验证](docs/08_加长硬盘仓与摩擦验证.md)。
+
 ## 运行
 
+系统 Conda envs 目录只读；本仓库环境位于 `.conda_envs/replace_disk_robot`，使用前需要把该目录加入 Conda 搜索路径：
+
 ```bash
-conda activate hard_disk_robot
+export CONDA_ENVS_PATH="$PWD/.conda_envs"
+conda activate replace_disk_robot
 python examples/check_isolated_environment.py
 python examples/scene_display_exp.py
 # 入口近景，或无界面保持初始状态 5 秒
@@ -17,12 +22,19 @@ python examples/scene_display_exp.py --camera insertion_cam --show-sites
 python examples/scene_display_exp.py --headless --seconds 5
 ```
 
-首次安装环境：`conda env create -f environment.yml`。环境提供 MuJoCo、NumPy、Pinocchio 和 Pillow；激活时隔离宿主 ROS 路径。所有示例从自身路径寻找模型，可在任意工作目录运行。
+首次安装环境使用：
+
+```bash
+CONDA_ENVS_PATH="$PWD/.conda_envs" conda env create -f environment.yml
+```
+
+环境提供 MuJoCo、NumPy、Pinocchio 和 Pillow；激活时隔离宿主 ROS 路径。所有示例从自身路径寻找模型，可在任意工作目录运行。
 
 ```bash
 python examples/smoke_test.py
 python -m pytest -q
 # 有界位置运动制造接触，验证腕部测力；不是力控插入
+python examples/validate_insertion_friction.py
 python examples/validate_insertion_contact.py --output simulation/mujoco/reports/contact_validation.json
 MUJOCO_GL=egl python examples/capture_scene.py
 ```

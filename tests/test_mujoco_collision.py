@@ -2,13 +2,13 @@ import unittest
 
 import numpy as np
 
-from hard_disk_robot.adapters.mujoco import (
+from replace_disk_robot.adapters.mujoco import (
     MujocoCollisionChecker,
     MujocoRobotAdapter,
     load_model,
     reset_home,
 )
-from hard_disk_robot.core import JointState
+from replace_disk_robot.core import JointState
 
 
 class MujocoCollisionCheckerTest(unittest.TestCase):
@@ -36,7 +36,7 @@ class MujocoCollisionCheckerTest(unittest.TestCase):
         self.assertLess(checker.minimum_distance(state), 0.0)
 
     def test_held_drive_socket_collision_is_not_ignored(self) -> None:
-        from hard_disk_robot.adapters.mujoco.insertion_validation import solve_center
+        from replace_disk_robot.adapters.mujoco.insertion_validation import solve_center
         checker = MujocoCollisionChecker(self.model, self.data)
         robot = MujocoRobotAdapter(self.model, self.data)
         target = self.data.site("drive_center").xpos.copy() + [.015,.001,0]
