@@ -133,20 +133,49 @@ class JakaKinematicsTest(unittest.TestCase):
         actuator_ids = np.array([model.actuator(name).id for name in JAKA_ACTUATORS])
         np.testing.assert_allclose(data.ctrl[actuator_ids], adapter.arm_position())
 
-    def test_keyboard_servo_selects_jaka_without_base_dofs(self) -> None:
+    def test_up_keyframe_matches_recorded_jaka_startup_pose(self) -> None:
+        expected = np.array(
+            [0.0551, 1.5901, -0.0254, 1.5356, 3.2008, 0.7079],
+            dtype=float,
+        )
+        model, data = load_model("jaka")
+        reset_keyframe(model, data, "up")
+        adapter = MujocoRobotAdapter(
+            model,
+            data,
+            joint_names=JAKA_JOINT_NAMES,
+            actuator_names=JAKA_ACTUATORS,
+            gripper_actuator_name=None,
+        )
+        np.testing.assert_allclose(adapter.arm_position(), expected, atol=1e-12)
+
+        actuator_ids = np.array([model.actuator(name).id for name in JAKA_ACTUATORS])
+        np.testing.assert_allclose(data.ctrl[actuator_ids], expected, atol=1e-12)
+
+    def test_keyboard_servo_selects_jaka_tool_frame_without_base_dofs(self) -> None:
         app = ServoDemo(model_name="jaka")
         self.assertEqual(app.robot.read_joint_state().names, JAKA_JOINT_NAMES)
-        self.assertEqual(app.command_frame, "jaka_base_link")
+        self.assertEqual(app.command_frame_mode, "tool")
+        self.assertEqual(app.command_frame, "tool0")
+        self.assertEqual(app.base_frame, "jaka_base_link")
         self.assertEqual(app.ft.read_wrench().frame_id, "tcp_fts_site")
         self.assertEqual(app.keyframe_name, "low")
 
         initial = app.kinematics.forward(app.robot.read_joint_state())
+        tool_x_in_base = rotation_matrix(initial.quaternion_wxyz) @ np.array([1.0, 0.0, 0.0])
         app.keys.press("r")
         for _ in range(25):
             app.tick()
         end = app.kinematics.forward(app.robot.read_joint_state())
-        self.assertGreater(end.position_m[0] - initial.position_m[0], 0.001)
+        displacement = end.position_m - initial.position_m
+        self.assertGreater(float(displacement @ tool_x_in_base), 0.0005)
         self.assertIsNone(app.servo.fault)
+
+    def test_keyboard_servo_can_still_use_jaka_base_frame(self) -> None:
+        app = ServoDemo(model_name="jaka", command_frame="base")
+        self.assertEqual(app.command_frame_mode, "base")
+        self.assertEqual(app.command_frame, "jaka_base_link")
+        self.assertEqual(app.keys.base_frame, "jaka_base_link")
 
     def test_wrong_joint_order_is_rejected(self) -> None:
         wrong = JointState(tuple(reversed(JAKA_JOINT_NAMES)), np.zeros(6))

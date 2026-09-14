@@ -1,6 +1,12 @@
 <mujoco model="tracer_jaka_zu5">
   <compiler angle="radian" meshdir="meshes" />
+  <visual>
+    <headlight diffuse="1.0 1.0 1.0" ambient="0.55 0.55 0.60" specular="0.25 0.25 0.25"/>
+  </visual>
   <asset>
+    <texture name="skybox" type="skybox" builtin="gradient"
+             rgb1="0.72 0.80 0.90" rgb2="0.42 0.50 0.60"
+             width="512" height="3072"/>
     <mesh name="tracer_base_link_no_wheel_mesh" file="tracer_base_link_no_wheel_mesh.obj" />
     <mesh name="tracer_base_link_no_wheel_mesh003" file="tracer_base_link_no_wheel_mesh003.obj" />
     <mesh name="tracer_base_link_no_wheel_mesh045" file="tracer_base_link_no_wheel_mesh045.obj" />
@@ -690,6 +696,14 @@
   </actuator>
 
   <keyframe>
+    <!-- Real JAKA startup pose recorded from jaka_start.py:
+         [+0.0551, +1.5901, -0.0254, +1.5356, +3.2008, +0.7079] rad.
+         Base x/y/yaw and wheel state are left at zero. -->
+    <key name="up"
+        qpos="0 0 0  0 0  +0.0551 +1.5901 -0.0254 +1.5356 +3.2008 +0.7079"
+        qvel="0 0 0  0 0  0 0 0 0 0 0"
+        ctrl="0 0   +0.0551 +1.5901 -0.0254 +1.5356 +3.2008 +0.7079"/>
+
     <key name="low"
         qpos="0 0 0  0 0  -0.515 1.5707 -1.5707 1.5707 1.5707 0.254"
         qvel="0 0 0  0 0  0 0 0 0 0 0"

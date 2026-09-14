@@ -112,11 +112,13 @@ class TrajectoryPoint:
 
 @dataclass(frozen=True)
 class CartesianJog:
-    """Linear velocity in base_frame; intrinsic angular velocity in current TCP axes.
+    """Cartesian velocity command in a named frame.
 
-    TCP X points forward, Y points left, Z points up at this scene's init.
-    The explicit mixed convention keeps vertical translation upright while roll
-    always follows the tool. Units are m/s and rad/s, never displacement per key.
+    ``CartesianServo`` consumes the historical mixed convention: linear
+    velocity is expressed in the kinematics base frame while angular velocity is
+    intrinsic to the current TCP axes.  Keyboard clients may build a command in
+    the current tool frame and convert it before submission.  Units are m/s and
+    rad/s, never displacement per key.
     """
     base_frame: str
     linear_m_s: np.ndarray

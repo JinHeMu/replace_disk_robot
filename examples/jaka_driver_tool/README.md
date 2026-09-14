@@ -28,6 +28,7 @@ src/replace_disk_robot/adapters/jaka/jaka_driver/x86_64-linux-gnu/
 | `jaka_stop.py` | 关闭 servo、关闭 EDG、下使能、下电、logout |
 | `jaka_ft_test.py` | 只读采集 EDG 力/力矩，可输出 CSV |
 | `jaka_edg_servo.py` | 125 Hz EDG 关节 servo，默认保持当前位置，可选正弦测试 |
+| `jaka_keyboard_servo.py` | 实机键盘笛卡尔 servo；默认 `jaka_base_link` 坐标系，初始目标为启动时实测姿态 |
 
 本地接口对应关系：
 
@@ -119,7 +120,39 @@ python examples/jaka_driver_tool/jaka_edg_servo.py \
 servo 命令通过 `JakaRobotAdapter.command_joint_positions()` 发出，内部使用
 EDG `step_num=1`，即 8 ms 周期。
 
-### 4. 关闭机器人
+### 4. 实机键盘 Cartesian servo
+
+先确认机器人已经由 `jaka_start.py` 上电使能，再用只读模式检查 EDG/F/T 和键盘：
+
+```bash
+python examples/jaka_driver_tool/jaka_keyboard_servo.py --dry-run
+```
+
+没有显示服务时可用无界面只读模式：
+
+```bash
+python examples/jaka_driver_tool/jaka_keyboard_servo.py \
+    --dry-run --headless --seconds 3
+```
+
+真正进入伺服时先用很小的速度和力限：
+
+```bash
+python examples/jaka_driver_tool/jaka_keyboard_servo.py \
+    --linear-speed 0.002 \
+    --angular-speed-deg 1 \
+    --max-force-n 5 \
+    --max-torque-nm 2
+```
+
+默认速度在 `jaka_base_link` 表达，初始姿态直接读取启动时的实测关节角。
+需要相对末端 `tool0` 控制时加 `--command-frame tool`。
+
+运行后会打开一个名为 `JAKA keyboard servo` 的 GLFW 窗口；键盘按键必须在
+该窗口内输入，不能在启动脚本的终端里按。终端里出现的 `s`、`w` 等字符
+只表示终端获得了焦点，不会传给 JAKA。点击该窗口后再按住按键即可。
+
+### 5. 关闭机器人
 
 ```bash
 python examples/jaka_driver_tool/jaka_stop.py

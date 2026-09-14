@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Hold-to-jog Cartesian servo for a selectable MuJoCo robot model."""
+"""Hold-to-jog Cartesian servo for a selectable MuJoCo robot model.
+
+Keyboard velocities can be expressed in the kinematics base frame or in the
+current TCP/tool frame; JAKA defaults to ``tool0`` and UR5e defaults to base.
+"""
 from __future__ import annotations
 
 import argparse
@@ -17,7 +21,8 @@ from replace_disk_robot.adapters.mujoco import (
     load_model, reset_keyframe, MujocoRobotAdapter, MujocoWristFTAdapter,
 )
 from replace_disk_robot.control import CartesianServo, KeyControl, ServoConfig
-from replace_disk_robot.core import Pose
+from replace_disk_robot.core import CartesianJog, Pose
+from replace_disk_robot.core.rotation import rotation_matrix
 from replace_disk_robot.kinematics.jaka import JAKA_JOINT_NAMES, JakaKinematics
 from replace_disk_robot.kinematics.ur5e import UR5eKinematics
 from replace_disk_robot.kinematics.tool import FixedToolKinematics
@@ -32,9 +37,13 @@ MODEL_CHOICES = ('ur5e', 'jaka')
 class ServoDemo:
     """Application wiring: keyboard -> servo -> safety gate -> ArmPort adapter."""
     def __init__(self, linear_speed=.01, angular_speed=np.deg2rad(5),
-                 model_name='ur5e', keyframe=None):
+                 model_name='ur5e', keyframe=None, command_frame='auto'):
         if model_name not in MODEL_CHOICES:
             raise ValueError(f'unknown model {model_name!r}; expected one of {MODEL_CHOICES}')
+        if command_frame not in ('auto', 'base', 'tool'):
+            raise ValueError(
+                f"command_frame must be 'auto', 'base' or 'tool', got {command_frame!r}"
+            )
         self.model_name = model_name
         self.keyframe_name = keyframe or ('home' if model_name == 'ur5e' else 'low')
         self.model, self.data = load_model(model_name)
@@ -50,7 +59,8 @@ class ServoDemo:
                 parent, 'g_base', Pose('g_base', [0,0,.145], [.5,-.5,-.5,-.5]),
             )
             joint_limits = parent.joint_limits_rad
-            command_frame = parent.base_frame
+            self.base_frame = parent.base_frame
+            self.tool_frame = 'pinch'
             self.ft = MujocoWristFTAdapter(self.model, self.data)
         else:
             self.robot = MujocoRobotAdapter(
@@ -65,7 +75,8 @@ class ServoDemo:
             # arm mount frame keeps base_x/base_y/base_yaw outside this Servo.
             self.kinematics = JakaKinematics()
             joint_limits = self.kinematics.joint_limits_rad
-            command_frame = self.kinematics.base_frame
+            self.base_frame = self.kinematics.base_frame
+            self.tool_frame = self.kinematics.end_effector_frame
             self.ft = MujocoWristFTAdapter(
                 self.model,
                 self.data,
@@ -79,10 +90,16 @@ class ServoDemo:
         self.servo = CartesianServo(self.kinematics, joint_limits,
             ServoConfig(linear_speed_m_s=linear_speed, angular_speed_rad_s=angular_speed,
                         max_tracking_error_rad=10.0))
-        self.keys = KeyControl(
-            linear_speed, angular_speed, base_frame=command_frame,
+        if command_frame == 'auto':
+            self.command_frame_mode = 'tool' if model_name == 'jaka' else 'base'
+        else:
+            self.command_frame_mode = command_frame
+        self.command_frame = (
+            self.tool_frame if self.command_frame_mode == 'tool' else self.base_frame
         )
-        self.command_frame = command_frame
+        self.keys = KeyControl(
+            linear_speed, angular_speed, base_frame=self.command_frame,
+        )
         # Only the measured force norm is used: stop above 20 N.
         # The torque threshold is disabled for this requested behavior.
         self.guard = ForceLimitGuard(force_limit_n=FORCE_STOP_N, torque_limit_nm=np.inf)
@@ -98,7 +115,6 @@ class ServoDemo:
 
     def _verify_tcp(self):
         pose = self.kinematics.forward(self.robot.read_joint_state())
-        from replace_disk_robot.core.rotation import rotation_matrix
         if self.model_name == 'ur5e':
             expected_position = self.data.site('pinch').xpos
             expected_rotation = self.data.site('drive_center').xmat.reshape(3,3)
@@ -143,7 +159,19 @@ class ServoDemo:
 
     def tick(self, refresh=True):
         if refresh:
-            self.servo.submit(self.keys.command(), self.data.time)
+            command = self.keys.command()
+            if self.command_frame_mode == 'tool':
+                # The keyboard command is expressed in the current tool frame.
+                # Convert it to the mixed base-frame convention expected by
+                # CartesianServo: linear in base axes, angular intrinsic TCP.
+                pose = self.kinematics.forward(self.servo.target)
+                base_from_tool = rotation_matrix(pose.quaternion_wxyz)
+                command = CartesianJog(
+                    self.base_frame,
+                    base_from_tool @ command.linear_m_s,
+                    command.angular_rad_s,
+                )
+            self.servo.submit(command, self.data.time)
         target = self.servo.update(self.robot.read_joint_state(), self.dt, self.data.time)
         for _ in range(self.steps_per_tick):
             self.last_wrench = self.ft.read_wrench()
@@ -162,13 +190,17 @@ class ServoDemo:
                 raise RuntimeError('Non-finite simulation state')
 
 
-def headless_report(model_name='ur5e', keyframe=None):
+def headless_report(model_name='ur5e', keyframe=None, command_frame='auto'):
     """Exercise all twelve actual key mappings through servo and MuJoCo dynamics."""
     from replace_disk_robot.control.key_control import KEY_AXES
-    from replace_disk_robot.core.rotation import rotation_matrix
     results = []
+    app = None
     for key, (translation, rotation) in KEY_AXES.items():
-        app = ServoDemo(model_name=model_name, keyframe=keyframe)
+        app = ServoDemo(
+            model_name=model_name,
+            keyframe=keyframe,
+            command_frame=command_frame,
+        )
         initial = app.kinematics.forward(app.robot.read_joint_state())
         r0 = rotation_matrix(initial.quaternion_wxyz)
         app.keys.press(key)
@@ -184,6 +216,11 @@ def headless_report(model_name='ur5e', keyframe=None):
                             rot_delta[1,0]-rot_delta[0,1]])/2
         delta = end.position_m-initial.position_m
         translation, rotation = np.array(translation), np.array(rotation)
+        if app.command_frame_mode == 'tool':
+            # delta is expressed in the base frame, while angular is the
+            # rotation vector in the initial tool frame (log(r0.T @ r1)).
+            # Therefore only the expected translation needs frame conversion.
+            translation = r0 @ translation
         projection = float(delta@translation if translation.any() else angular@rotation)
         held = app.servo.target.position_rad.copy()
         for _ in range(20):
@@ -194,10 +231,14 @@ def headless_report(model_name='ur5e', keyframe=None):
                       (translation.any() or np.linalg.norm(delta) < .001))
         results.append(dict(key=key, passed=passed, displacement_m=delta.tolist(),
                             rotation_tcp_rad=angular.tolist(), status=app.servo.status))
-    return dict(passed=all(r['passed'] for r in results), model=model_name,
-                keyframe=keyframe or ('home' if model_name == 'ur5e' else 'low'), tests=results,
-                scope='Synthetic key events through actual servo/dynamics; not an OS keyboard test')
-
+    return dict(
+        passed=all(r['passed'] for r in results),
+        model=model_name,
+        keyframe=keyframe or ('home' if model_name == 'ur5e' else 'low'),
+        command_frame=app.command_frame if app is not None else command_frame,
+        tests=results,
+        scope='Synthetic key events through actual servo/dynamics; not an OS keyboard test',
+    )
 
 def handle_focus(app, focused):
     """Focus pauses never erase a force/explicit-stop fault or replay held keys."""
@@ -297,7 +338,7 @@ def run_window(app, plot_wrench=False):
         next_frame = deadline
         forward_label = 'insert/retract' if app.model_name == 'ur5e' else 'forward/back'
         print(f'Model: {app.model_name}; keyframe: {app.keyframe_name}; '
-              f'translation frame: {app.command_frame}')
+              f'command frame: {app.command_frame}')
         print(f'W/S up/down; A/D left/right; R/F {forward_label}; '
               'Q/E yaw; Up/Down pitch; Left/Right roll')
         print('Click ROBOT window to control. Plot window does not accept robot keys.')
@@ -357,13 +398,20 @@ def main():
                         help='MuJoCo robot model (default: ur5e)')
     parser.add_argument('--keyframe',
                         help='initial keyframe (default: ur5e=home, jaka=low)')
+    parser.add_argument(
+        '--command-frame',
+        choices=('auto', 'base', 'tool'),
+        default='auto',
+        help=('keyboard velocity frame; auto: ur5e=base, jaka=tool0. '
+              'base uses the kinematics base frame, tool uses the current TCP axes'),
+    )
     parser.add_argument('--headless', action='store_true', help='run all twelve scripted key checks')
     parser.add_argument('--plot-wrench', action='store_true',
                         help='show live force and torque plots in a second window')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     if args.headless:
-        report = headless_report(args.model, args.keyframe)
+        report = headless_report(args.model, args.keyframe, args.command_frame)
         text = json.dumps(report, indent=2)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -374,7 +422,8 @@ def main():
     else:
         run_window(
             ServoDemo(args.linear_speed, np.deg2rad(args.angular_speed_deg),
-                      model_name=args.model, keyframe=args.keyframe),
+                      model_name=args.model, keyframe=args.keyframe,
+                      command_frame=args.command_frame),
             plot_wrench=args.plot_wrench,
         )
 

@@ -3,7 +3,8 @@ import numpy as np
 from ..core.types import CartesianJog
 
 
-# (base translation, intrinsic TCP rotation), with TCP X forward at init.
+# (translation, intrinsic rotation) in the active command frame,
+# with TCP X forward at init.
 KEY_AXES = {
     'w': ([0,0,1], [0,0,0]), 's': ([0,0,-1], [0,0,0]),
     'a': ([0,1,0], [0,0,0]), 'd': ([0,-1,0], [0,0,0]),
@@ -16,6 +17,7 @@ KEY_AXES = {
 
 class KeyControl:
     def __init__(self, linear_speed_m_s=.01, angular_speed_rad_s=np.deg2rad(5), base_frame='world'):
+        """``base_frame`` is the frame in which the key velocities are expressed."""
         if (not np.isfinite(linear_speed_m_s) or linear_speed_m_s <= 0 or
                 not np.isfinite(angular_speed_rad_s) or angular_speed_rad_s <= 0):
             raise ValueError('Key speeds must be finite and positive')
