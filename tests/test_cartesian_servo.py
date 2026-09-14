@@ -61,6 +61,21 @@ def test_opposites_repeat_diagonal_and_focus_clear():
     assert not keys.command().angular_rad_s.any()
 
 
+def test_forward_axis_replaces_rf_translation_direction():
+    keys = KeyControl()
+    axis = np.array([0.0, 0.0, 1.0])
+
+    keys.press('r')
+    np.testing.assert_allclose(keys.command(forward_axis=axis).linear_m_s, axis*0.01)
+    keys.release('r')
+
+    keys.press('f')
+    np.testing.assert_allclose(keys.command(forward_axis=axis).linear_m_s, -axis*0.01)
+
+    with pytest.raises(ValueError):
+        keys.command(forward_axis=[0.0, 0.0, 0.0])
+
+
 def test_zero_input_and_timeout_hold_last_target_not_measured_drift():
     servo, state = setup_servo()
     servo.submit(CartesianJog('world',[0,0,.01],[0,0,0]), 0.)

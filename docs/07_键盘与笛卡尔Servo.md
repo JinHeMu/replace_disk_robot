@@ -26,19 +26,19 @@ python examples/keyboard_servo.py --plot-wrench
 
 | 按键 | 动作 | 坐标约定 |
 |---|---|---|
-| W / S | 向上 / 向下平移 | UR5e `world`、JAKA 默认 `tool0`（可用 `--command-frame base` 改为 `jaka_base_link`）的 +Z / −Z |
-| A / D | 向左 / 向右平移 | 所选平移坐标系的 +Y / −Y |
-| R / F | 向前 / 向后 | 所选平移坐标系的 +X / −X；UR5e 中对应插入/退出 |
-| Q / E | 朝左 / 朝右偏转 | 当前 TCP +Z / −Z |
-| ↑ / ↓ | 抬头 / 低头 | 当前 TCP −Y / +Y |
-| ← / → | 末端自旋 | 当前 TCP +X / −X，按右手定则 |
+| W / S | 向上 / 向下平移 | 所选坐标系 ±Z；JAKA base 模式为 `jaka_base_link` Z |
+| A / D | 向左 / 向右平移 | 所选坐标系 ±Y；JAKA base 模式为 `jaka_base_link` Y |
+| R / F | 插入 / 退出 | UR5e base：`world` ±X；JAKA tool：tool0 ±X；JAKA base：当前 tool0 +Z / −Z（蓝色轴） |
+| Q / E | 朝左 / 朝右偏转 | UR5e 与 JAKA tool：当前 TCP ±Z；JAKA base：base ±Z 并转换到 TCP |
+| ↑ / ↓ | 抬头 / 低头 | UR5e 与 JAKA tool：当前 TCP ∓Y；JAKA base：base ∓Y 并转换到 TCP |
+| ← / → | 末端自旋 | UR5e 与 JAKA tool：当前 TCP ±X；JAKA base：base ±X 并转换到 TCP |
 | 空格 | 停止并锁住运动输入 | Enter 恢复 |
 | Enter | 清空按键并恢复接收新输入 | 不重新去皮、不重置机器人姿态 |
 | Esc | 退出窗口 | 仿真结束 |
 
-“上、下、左、右、前、后”不随观察相机改变。UR5e 平移默认在 `world` 表达，初始 TCP X 沿硬盘长度朝插口、Y 为宽度方向、Z 向上，旋转中心是 `pinch`。JAKA 默认在 `tool0` 末端坐标系表达键盘速度，旋转中心也是 `tool0`；可用 `--command-frame base` 切回 `jaka_base_link`，此时 `base_x/base_y/base_yaw`、车轮和底盘执行器仍不进入 Servo。`--command-frame auto` 为默认值：UR5e 选 base，JAKA 选 tool。两个模型的姿态旋转均为当前 TCP 自身轴。
+“上、下、左、右、前、后”不随观察相机改变。UR5e 平移默认在 `world` 表达，初始 TCP X 沿硬盘长度朝插口、Y 为宽度方向、Z 向上，旋转中心是 `pinch`。JAKA 默认在 `tool0` 末端坐标系表达键盘速度，旋转中心也是 `tool0`；使用 `--command-frame base` 时，W/S/A/D 和 Q/E/方向键按 `jaka_base_link` 解释，R/F 例外，沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出并随 TCP 姿态变化。`base_x/base_y/base_yaw`、车轮和底盘执行器仍不进入 Servo。`--command-frame auto` 为默认值：UR5e 选 base，JAKA 选 tool。UR5e base 与 JAKA tool 模式的姿态旋转仍为当前 TCP 自身轴；JAKA base 模式的旋转为 base 轴。
 
-同时按方向相反的键会抵消；同时按多个平移或旋转键分别归一化，不增加相应速度模长。R/F 沿所选平移坐标系的 X 轴前后运动：UR5e 相对 `world` 固定；JAKA 默认相对当前 `tool0` 固定，会随 TCP 姿态变化；显式使用 `--command-frame base` 时则相对 `jaka_base_link` 固定。
+同时按方向相反的键会抵消；同时按多个平移或旋转键分别归一化，不增加相应速度模长。R/F 在 UR5e base 下沿 `world` X 轴，在 JAKA tool 下沿 `tool0` X 轴；显式使用 `python examples/keyboard_servo.py --model jaka --command-frame base` 时，R/F 沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出，其他键仍按 `jaka_base_link` 轴解释。
 
 点击力曲线窗口时机械臂暂停；重新点击机械臂窗口后，仅失焦暂停会自动解除，必须重新按运动键，不会恢复之前按住的键。空格停止、限力、跟踪错误或循环超时仍需 Enter 恢复，切换窗口不会清除这些故障。控制窗口独立管理按键，方向键不会同时控制 MuJoCo 默认相机。
 
@@ -98,7 +98,7 @@ python examples/keyboard_servo.py --headless --output simulation/mujoco/reports/
 python examples/keyboard_servo.py --model jaka --headless --output /tmp/jaka_keyboard_servo.json
 ```
 
-无界面入口使用固定默认速度，依次对全部十二个键执行 0.5 秒命令和松键保持，检查实际 TCP 位移/旋转方向、绕 TCP 旋转的平移误差、无碰撞以及停止后目标不累积。UR5e 默认从 `home` 开始；JAKA 的 `home` 接近运动学奇异位形，因此动力学 Servo 回归默认从非奇异的 `low` 开始。可通过 `--keyframe` 覆盖；`--command-frame auto` 时 JAKA 使用 `tool0`，UR5e 使用 base，`--command-frame base/tool` 可强制切换，但测试失败应被如实报告。它经过真实 MuJoCo 动力学，但使用程序生成的按键状态，不等于操作系统键盘端到端验证。
+无界面入口使用固定默认速度，依次对全部十二个键执行 0.5 秒命令和松键保持，检查实际 TCP 位移/旋转方向、绕 TCP 旋转的平移误差、无碰撞以及停止后目标不累积。UR5e 默认从 `home` 开始；JAKA 的 `home` 接近运动学奇异位形，因此动力学 Servo 回归默认从非奇异的 `low` 开始。可通过 `--keyframe` 覆盖；`--command-frame auto` 时 JAKA 使用 `tool0`，UR5e 使用 base；JAKA `--command-frame base` 下 R/F 按 tool0 +Z/−Z 检查，其余键按 base 轴检查。它经过真实 MuJoCo 动力学，但使用程序生成的按键状态，不等于操作系统键盘端到端验证。
 
 单元测试覆盖按键组合/抵消/清空、坐标系、超时、奇异 Jacobian、限速、限位、关节名称重排、故障锁存和路径中间碰撞；TCP 的 FK/Jacobian 与 MuJoCo `pinch` 对照，且检查偏置 TCP 的逆运动学。
 

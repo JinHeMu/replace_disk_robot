@@ -40,10 +40,28 @@ class KeyControl:
         """Call on focus loss, stop or shutdown."""
         self.pressed.clear()
 
-    def command(self) -> CartesianJog:
+    def command(self, forward_axis: np.ndarray | None = None) -> CartesianJog:
+        """Return the active key command.
+
+        When ``forward_axis`` is supplied, R/F translation follows that axis in
+        the command frame instead of the default +X/−X directions.  This is
+        used by the JAKA base-frame keyboard mode where R/F should insert and
+        retract along the current ``tool0`` +Z axis.
+        """
+        if forward_axis is not None:
+            axis = np.asarray(forward_axis, dtype=float)
+            norm = float(np.linalg.norm(axis))
+            if axis.shape != (3,) or not np.isfinite(axis).all() or norm < 1e-12:
+                raise ValueError('forward_axis must be a finite non-zero 3-vector')
+            axis = axis / norm
+        else:
+            axis = None
+
         linear, angular = np.zeros(3), np.zeros(3)
         for key in sorted(self.pressed):
             translation, rotation = KEY_AXES[key]
+            if axis is not None and key in ('r', 'f'):
+                translation = axis if key == 'r' else -axis
             linear += translation
             angular += rotation
         # Diagonal key combinations do not increase either speed norm.

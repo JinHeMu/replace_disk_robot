@@ -177,6 +177,18 @@ class JakaKinematicsTest(unittest.TestCase):
         self.assertEqual(app.command_frame, "jaka_base_link")
         self.assertEqual(app.keys.base_frame, "jaka_base_link")
 
+        # In JAKA base mode R/F are special: they move along the current
+        # tool0 +Z (blue) axis, while other keys remain in base axes.
+        initial = app.kinematics.forward(app.robot.read_joint_state())
+        tool_z_in_base = rotation_matrix(initial.quaternion_wxyz) @ np.array([0.0, 0.0, 1.0])
+        app.keys.press("r")
+        for _ in range(25):
+            app.tick()
+        end = app.kinematics.forward(app.robot.read_joint_state())
+        displacement = end.position_m - initial.position_m
+        self.assertGreater(float(displacement @ tool_z_in_base), 0.0005)
+        self.assertIsNone(app.servo.fault)
+
     def test_wrong_joint_order_is_rejected(self) -> None:
         wrong = JointState(tuple(reversed(JAKA_JOINT_NAMES)), np.zeros(6))
         with self.assertRaises(ValueError):

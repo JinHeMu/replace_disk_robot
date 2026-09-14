@@ -157,21 +157,47 @@ class ServoDemo:
         # Resume does not retare and hide an existing load.
         self.servo.reset(self.robot.read_joint_state())
 
+    def _current_pose(self):
+        target = self.servo.target
+        if target is None:
+            target = self.robot.read_joint_state()
+        return self.kinematics.forward(target)
+
+    def _jog_to_servo(self) -> CartesianJog:
+        """Map active keys to the mixed convention expected by Servo.
+
+        ``CartesianServo`` consumes linear velocity in the kinematics base
+        frame and angular velocity in the current TCP axes.
+
+        * tool mode: translate and rotate in the current tool frame.
+        * JAKA base mode: W/S/A/D translate in base, R/F translate along the
+          current tool0 +Z (blue axis), and Q/E/arrow rotations are specified
+          in base axes then converted to intrinsic TCP axes.
+        * UR5e base mode: preserve the previous base/tool-key behavior.
+        """
+        if self.command_frame_mode == 'tool':
+            command = self.keys.command()
+            pose = self._current_pose()
+            base_from_tool = rotation_matrix(pose.quaternion_wxyz)
+            return CartesianJog(
+                self.base_frame,
+                base_from_tool @ command.linear_m_s,
+                command.angular_rad_s,
+            )
+        if self.model_name == 'jaka':
+            pose = self._current_pose()
+            base_from_tool = rotation_matrix(pose.quaternion_wxyz)
+            command = self.keys.command(forward_axis=base_from_tool[:, 2])
+            return CartesianJog(
+                self.base_frame,
+                command.linear_m_s,
+                base_from_tool.T @ command.angular_rad_s,
+            )
+        return self.keys.command()
+
     def tick(self, refresh=True):
         if refresh:
-            command = self.keys.command()
-            if self.command_frame_mode == 'tool':
-                # The keyboard command is expressed in the current tool frame.
-                # Convert it to the mixed base-frame convention expected by
-                # CartesianServo: linear in base axes, angular intrinsic TCP.
-                pose = self.kinematics.forward(self.servo.target)
-                base_from_tool = rotation_matrix(pose.quaternion_wxyz)
-                command = CartesianJog(
-                    self.base_frame,
-                    base_from_tool @ command.linear_m_s,
-                    command.angular_rad_s,
-                )
-            self.servo.submit(command, self.data.time)
+            self.servo.submit(self._jog_to_servo(), self.data.time)
         target = self.servo.update(self.robot.read_joint_state(), self.dt, self.data.time)
         for _ in range(self.steps_per_tick):
             self.last_wrench = self.ft.read_wrench()
@@ -215,8 +241,18 @@ def headless_report(model_name='ur5e', keyframe=None, command_frame='auto'):
         angular = np.array([rot_delta[2,1]-rot_delta[1,2], rot_delta[0,2]-rot_delta[2,0],
                             rot_delta[1,0]-rot_delta[0,1]])/2
         delta = end.position_m-initial.position_m
-        translation, rotation = np.array(translation), np.array(rotation)
-        if app.command_frame_mode == 'tool':
+        translation, rotation = np.array(translation, dtype=float), np.array(rotation, dtype=float)
+        if app.model_name == 'jaka' and app.command_frame_mode == 'base':
+            # Jaka base mode: R/F use the initial tool0 +Z (blue axis), while
+            # all other translation/rotation keys are interpreted in base axes.
+            # The measured angular vector is expressed in the initial tool
+            # frame, so base-frame rotation commands must be transformed.
+            if key == 'r':
+                translation = r0 @ np.array([0.0, 0.0, 1.0])
+            elif key == 'f':
+                translation = -r0 @ np.array([0.0, 0.0, 1.0])
+            rotation = r0.T @ rotation
+        elif app.command_frame_mode == 'tool':
             # delta is expressed in the base frame, while angular is the
             # rotation vector in the initial tool frame (log(r0.T @ r1)).
             # Therefore only the expected translation needs frame conversion.
@@ -336,7 +372,11 @@ def run_window(app, plot_wrench=False):
             plotter.update(app.last_wrench, app.data.time)
         deadline = time.monotonic()
         next_frame = deadline
-        forward_label = 'insert/retract' if app.model_name == 'ur5e' else 'forward/back'
+        forward_label = (
+            'insert/retract'
+            if app.model_name == 'ur5e' or app.command_frame_mode == 'base'
+            else 'forward/back'
+        )
         print(f'Model: {app.model_name}; keyframe: {app.keyframe_name}; '
               f'command frame: {app.command_frame}')
         print(f'W/S up/down; A/D left/right; R/F {forward_label}; '
@@ -345,6 +385,9 @@ def run_window(app, plot_wrench=False):
         print('Hold to move; release to hold. Space stop; Enter resume; Esc exit.')
         print('Focus loss pauses; clicking ROBOT window resumes only that focus pause.')
         print(f'Obstacle contact is allowed; measured force > {FORCE_STOP_N:g} N stops the servo.')
+        if app.model_name == 'jaka' and app.command_frame_mode == 'base':
+            print('JAKA base mode: R/F move along current tool0 +Z (blue axis); '
+                  'other keys use base axes.')
         previous_status = None
         plot_error_reported = False
         while not glfw.window_should_close(window):
@@ -403,7 +446,8 @@ def main():
         choices=('auto', 'base', 'tool'),
         default='auto',
         help=('keyboard velocity frame; auto: ur5e=base, jaka=tool0. '
-              'base uses the kinematics base frame, tool uses the current TCP axes'),
+              'base: JAKA uses jaka_base_link with R/F along current tool0 +Z; '
+              'tool: current TCP axes'),
     )
     parser.add_argument('--headless', action='store_true', help='run all twelve scripted key checks')
     parser.add_argument('--plot-wrench', action='store_true',

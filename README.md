@@ -61,7 +61,7 @@ python examples/keyboard_servo.py --model ur5e --headless
 python examples/keyboard_servo.py --model jaka --headless
 ```
 
-按住 W/S 升降、A/D 左右平移、R/F 前进/后退、Q/E 左右偏转；↑/↓ 抬头低头、←/→ 自旋。松键保持，空格停止，Enter 恢复，Esc 退出。默认 10 mm/s、5°/s。UR5e 平移默认在 `world` 表达、旋转中心为 `pinch`；JAKA 默认键盘速度在 `tool0` 末端坐标系表达，旋转中心为 `tool0`，可用 `--command-frame base` 切回 `jaka_base_link`，或用 `--command-frame tool` 强制使用末端坐标系。JAKA 默认使用非奇异的 `low` keyframe，也可用 `--keyframe` 显式选择模型中已有的 keyframe。`up` 保存实机 `jaka_start.py` 读到的启动关节角；该姿态的 `joint_3≈0`，接近肘部奇异，因而部分笛卡尔方向运动能力受限，全方向回归仍使用 `low`。
+按住 W/S 升降、A/D 左右平移、R/F 前进/后退、Q/E 左右偏转；↑/↓ 抬头低头、←/→ 自旋。松键保持，空格停止，Enter 恢复，Esc 退出。默认 10 mm/s、5°/s。UR5e 平移默认在 `world` 表达、旋转中心为 `pinch`；JAKA 默认键盘速度在 `tool0` 末端坐标系表达，旋转中心为 `tool0`。使用 `--command-frame base` 时，JAKA 的 W/S/A/D 与 Q/E/方向键按 `jaka_base_link` 解释，R/F 特殊：沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出。或用 `--command-frame tool` 强制所有键使用末端坐标系。JAKA 默认使用非奇异的 `low` keyframe，也可用 `--keyframe` 显式选择模型中已有的 keyframe。`up` 保存实机 `jaka_start.py` 读到的启动关节角；该姿态的 `joint_3≈0`，接近肘部奇异，因而部分笛卡尔方向运动能力受限，全方向回归仍使用 `low`。
 
 键盘与 Servo 独立，详见 [接口、按键和验证说明](docs/07_键盘与笛卡尔Servo.md)。该入口用于无接触手动点动，不是力控插入。
 
