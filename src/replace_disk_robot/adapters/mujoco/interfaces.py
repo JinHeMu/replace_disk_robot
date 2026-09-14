@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from ...core.types import JointState, Wrench
+from ...core.ports import ArmPort, ForceTorquePort
 
 
 ARM_JOINTS = (
@@ -36,32 +37,52 @@ def _ids(model: mujoco.MjModel, obj_type: mujoco.mjtObj, names: tuple[str, ...])
 
 
 @dataclass
-class MujocoRobotAdapter:
-    """Joint-position and gripper adapter; it contains no planner."""
+class MujocoRobotAdapter(ArmPort):
+    """Named joint-position adapter with an optional gripper actuator."""
 
     model: mujoco.MjModel
     data: mujoco.MjData
     compensate_bias: bool = False
+    joint_names: tuple[str, ...] = ARM_JOINTS
+    actuator_names: tuple[str, ...] = ARM_ACTUATORS
+    gripper_actuator_name: str | None = "fingers_actuator"
 
     def __post_init__(self) -> None:
-        joint_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_JOINT, ARM_JOINTS)
+        self.joint_names = tuple(self.joint_names)
+        self.actuator_names = tuple(self.actuator_names)
+        if not self.joint_names or len(self.joint_names) != len(self.actuator_names):
+            raise ValueError("joint_names and actuator_names must have equal non-zero length")
+        if len(set(self.joint_names)) != len(self.joint_names):
+            raise ValueError("joint_names must be unique")
+        if len(set(self.actuator_names)) != len(self.actuator_names):
+            raise ValueError("actuator_names must be unique")
+        joint_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_JOINT, self.joint_names)
         self._qpos_ids = self.model.jnt_qposadr[joint_ids]
         self._dof_ids = self.model.jnt_dofadr[joint_ids]
-        self._actuator_ids = _ids(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, ARM_ACTUATORS)
-        self._gripper_id = int(_ids(
-            self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, ("fingers_actuator",)
-        )[0])
+        self._actuator_ids = _ids(
+            self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, self.actuator_names
+        )
+        self._gripper_id = None
+        if self.gripper_actuator_name is not None:
+            self._gripper_id = int(_ids(
+                self.model,
+                mujoco.mjtObj.mjOBJ_ACTUATOR,
+                (self.gripper_actuator_name,),
+            )[0])
 
     def arm_position(self) -> NDArray[np.float64]:
         return self.data.qpos[self._qpos_ids].copy()
 
     def read_joint_state(self) -> JointState:
-        return JointState(ARM_JOINTS, self.arm_position())
+        return JointState(self.joint_names, self.arm_position())
 
     def command_arm(self, q_target: ArrayLike) -> None:
         target = np.asarray(q_target, dtype=float)
-        if target.shape != (6,) or not np.all(np.isfinite(target)):
-            raise ValueError("q_target must be a finite 6-vector in radians")
+        expected_shape = (len(self.joint_names),)
+        if target.shape != expected_shape or not np.all(np.isfinite(target)):
+            raise ValueError(
+                f"q_target must be a finite vector with shape {expected_shape} in radians"
+            )
         control = target.copy()
         if self.compensate_bias:
             # Explicit opt-in equilibrium feedforward for the position servos.
@@ -72,13 +93,20 @@ class MujocoRobotAdapter:
         self.data.ctrl[self._actuator_ids] = control
 
     def command_joint_positions(self, target: JointState) -> None:
-        if set(target.names) != set(ARM_JOINTS) or len(target.names) != len(ARM_JOINTS):
-            raise ValueError("joint target must contain each UR5e arm joint exactly once")
+        if (
+            set(target.names) != set(self.joint_names)
+            or len(target.names) != len(self.joint_names)
+        ):
+            raise ValueError("joint target must contain each configured arm joint exactly once")
         index = {name: i for i, name in enumerate(target.names)}
-        ordered = np.array([target.position_rad[index[name]] for name in ARM_JOINTS])
+        ordered = np.array([
+            target.position_rad[index[name]] for name in self.joint_names
+        ])
         self.command_arm(ordered)
 
     def command_gripper(self, command: float) -> None:
+        if self._gripper_id is None:
+            raise RuntimeError("this robot adapter has no gripper actuator")
         if not np.isfinite(command):
             raise ValueError("gripper command must be finite")
         self.data.ctrl[self._gripper_id] = float(np.clip(command, 0.0, 255.0))
@@ -92,18 +120,23 @@ class MujocoRobotAdapter:
 
 
 @dataclass
-class MujocoWristFTAdapter:
-    """Read and tare the raw wrist wrench in ``wrist_ft_site`` coordinates."""
+class MujocoWristFTAdapter(ForceTorquePort):
+    """Read and tare a named MuJoCo force/torque sensor pair."""
 
     model: mujoco.MjModel
     data: mujoco.MjData
+    force_sensor_name: str = "wrist_force"
+    torque_sensor_name: str = "wrist_torque"
+    frame_id: str = "wrist_ft_site"
 
     def __post_init__(self) -> None:
+        if not self.force_sensor_name or not self.torque_sensor_name or not self.frame_id:
+            raise ValueError("force sensor, torque sensor and frame names must not be empty")
         self._force_id = int(_ids(
-            self.model, mujoco.mjtObj.mjOBJ_SENSOR, ("wrist_force",)
+            self.model, mujoco.mjtObj.mjOBJ_SENSOR, (self.force_sensor_name,)
         )[0])
         self._torque_id = int(_ids(
-            self.model, mujoco.mjtObj.mjOBJ_SENSOR, ("wrist_torque",)
+            self.model, mujoco.mjtObj.mjOBJ_SENSOR, (self.torque_sensor_name,)
         )[0])
         self.bias = np.zeros(6)
 
@@ -124,4 +157,4 @@ class MujocoWristFTAdapter:
 
     def read_wrench(self) -> Wrench:
         vector = self.wrench()
-        return Wrench("wrist_ft_site", vector[:3], vector[3:])
+        return Wrench(self.frame_id, vector[:3], vector[3:])

@@ -42,7 +42,7 @@ def _load_pinocchio() -> Any:
     spec = find_spec("pinocchio")
     if spec is None:
         raise ImportError(
-            "Pinocchio is required for UR5eKinematics; install the optional "
+            "Pinocchio is required for arm kinematics; install the optional "
             "dependency with `pip install -e '.[kinematics]'`"
         )
 
@@ -72,6 +72,8 @@ class UR5eKinematics:
     ``base_frame`` must be fixed with respect to Pinocchio's universe frame.
     """
 
+    robot_name = "UR5e"
+
     def __init__(
         self,
         urdf_path: str | Path = PROJECT_UR5E_URDF,
@@ -86,7 +88,7 @@ class UR5eKinematics:
     ) -> None:
         path = Path(urdf_path).expanduser().resolve()
         if not path.is_file():
-            raise FileNotFoundError(f"UR5e URDF does not exist: {path}")
+            raise FileNotFoundError(f"{self.robot_name} URDF does not exist: {path}")
         if not end_effector_frame or not base_frame:
             raise ValueError("end_effector_frame and base_frame must not be empty")
         if ik_max_iterations <= 0:
@@ -100,7 +102,7 @@ class UR5eKinematics:
         full_model = self._pin.buildModelFromUrdf(str(path))
         self._validate_arm_joints(full_model)
 
-        arm_names = set(UR5E_JOINT_NAMES)
+        arm_names = set(self.joint_names)
         locked_joint_ids = [
             joint_id
             for joint_id in range(1, full_model.njoints)
@@ -195,7 +197,7 @@ class UR5eKinematics:
     def inverse(self, target: Pose, seed: JointState) -> JointState:
         """Solve full-pose IK from ``seed`` using damped least squares.
 
-        UR5e has multiple IK branches; the seed selects the local branch. A
+        A six-axis arm can have multiple IK branches; the seed selects the local branch. A
         ``RuntimeError`` is raised if the requested tolerances are not reached.
         """
         if target.frame_id != self.base_frame:
@@ -258,7 +260,7 @@ class UR5eKinematics:
             )
 
         raise RuntimeError(
-            "UR5e IK did not converge after "
+            f"{self.robot_name} IK did not converge after "
             f"{self.ik_max_iterations} iterations "
             f"(position error={position_error:.3e} m, "
             f"orientation error={orientation_error:.3e} rad)"
@@ -267,7 +269,9 @@ class UR5eKinematics:
     def _validate_arm_joints(self, model: Any) -> None:
         missing = [name for name in self.joint_names if not model.existJointName(name)]
         if missing:
-            raise ValueError(f"URDF is missing required UR5e joints: {missing}")
+            raise ValueError(
+                f"URDF is missing required {self.robot_name} joints: {missing}"
+            )
         invalid = [
             name
             for name in self.joint_names
@@ -276,7 +280,7 @@ class UR5eKinematics:
         ]
         if invalid:
             raise ValueError(
-                "UR5e joints must each have one position and velocity: "
+                f"{self.robot_name} joints must each have one position and velocity: "
                 f"{invalid}"
             )
 

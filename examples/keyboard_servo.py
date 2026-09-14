@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hold-to-jog Cartesian servo in the MuJoCo window; contact stops at force > 20 N."""
+"""Hold-to-jog Cartesian servo for a selectable MuJoCo robot model."""
 from __future__ import annotations
 
 import argparse
@@ -14,36 +14,75 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
 from replace_disk_robot.adapters.mujoco import (
-    load_model, reset_home, MujocoRobotAdapter, MujocoWristFTAdapter,
+    load_model, reset_keyframe, MujocoRobotAdapter, MujocoWristFTAdapter,
 )
 from replace_disk_robot.control import CartesianServo, KeyControl, ServoConfig
 from replace_disk_robot.core import Pose
+from replace_disk_robot.kinematics.jaka import JAKA_JOINT_NAMES, JakaKinematics
 from replace_disk_robot.kinematics.ur5e import UR5eKinematics
 from replace_disk_robot.kinematics.tool import FixedToolKinematics
 from replace_disk_robot.safety import ForceLimitGuard
 
 
 FORCE_STOP_N = 20.0
+JAKA_ACTUATORS = tuple(f'joint_{index}_servo' for index in range(1, 7))
+MODEL_CHOICES = ('ur5e', 'jaka')
 
 
 class ServoDemo:
     """Application wiring: keyboard -> servo -> safety gate -> ArmPort adapter."""
-    def __init__(self, linear_speed=.01, angular_speed=np.deg2rad(5)):
-        self.model, self.data = load_model()
-        reset_home(self.model, self.data)
-        self.robot = MujocoRobotAdapter(self.model, self.data, compensate_bias=True)
-        parent = UR5eKinematics(end_effector_frame='g_base')
-        # TCP at the existing pinch site; X forward matches disk length at init.
-        self.kinematics = FixedToolKinematics(parent, 'g_base',
-            Pose('g_base', [0,0,.145], [.5,-.5,-.5,-.5]))
+    def __init__(self, linear_speed=.01, angular_speed=np.deg2rad(5),
+                 model_name='ur5e', keyframe=None):
+        if model_name not in MODEL_CHOICES:
+            raise ValueError(f'unknown model {model_name!r}; expected one of {MODEL_CHOICES}')
+        self.model_name = model_name
+        self.keyframe_name = keyframe or ('home' if model_name == 'ur5e' else 'low')
+        self.model, self.data = load_model(model_name)
+        reset_keyframe(self.model, self.data, self.keyframe_name)
+
+        if model_name == 'ur5e':
+            self.robot = MujocoRobotAdapter(
+                self.model, self.data, compensate_bias=True,
+            )
+            parent = UR5eKinematics(end_effector_frame='g_base')
+            # TCP at the existing pinch site; X forward matches disk length at init.
+            self.kinematics = FixedToolKinematics(
+                parent, 'g_base', Pose('g_base', [0,0,.145], [.5,-.5,-.5,-.5]),
+            )
+            joint_limits = parent.joint_limits_rad
+            command_frame = parent.base_frame
+            self.ft = MujocoWristFTAdapter(self.model, self.data)
+        else:
+            self.robot = MujocoRobotAdapter(
+                self.model,
+                self.data,
+                compensate_bias=True,
+                joint_names=JAKA_JOINT_NAMES,
+                actuator_names=JAKA_ACTUATORS,
+                gripper_actuator_name=None,
+            )
+            # The URDF's base and accessories are fixed.  Expressing FK in the
+            # arm mount frame keeps base_x/base_y/base_yaw outside this Servo.
+            self.kinematics = JakaKinematics()
+            joint_limits = self.kinematics.joint_limits_rad
+            command_frame = self.kinematics.base_frame
+            self.ft = MujocoWristFTAdapter(
+                self.model,
+                self.data,
+                force_sensor_name='tcp_fts_force',
+                torque_sensor_name='tcp_fts_torque',
+                frame_id='tcp_fts_site',
+            )
         # No collision checker here: the tool may touch an obstacle and build force.
         # Tracking error is deliberately loose so contact cannot latch the servo
         # before the force gate; the stop condition is the measured force below.
-        self.servo = CartesianServo(self.kinematics, parent.joint_limits_rad,
+        self.servo = CartesianServo(self.kinematics, joint_limits,
             ServoConfig(linear_speed_m_s=linear_speed, angular_speed_rad_s=angular_speed,
                         max_tracking_error_rad=10.0))
-        self.keys = KeyControl(linear_speed, angular_speed)
-        self.ft = MujocoWristFTAdapter(self.model, self.data)
+        self.keys = KeyControl(
+            linear_speed, angular_speed, base_frame=command_frame,
+        )
+        self.command_frame = command_frame
         # Only the measured force norm is used: stop above 20 N.
         # The torque threshold is disabled for this requested behavior.
         self.guard = ForceLimitGuard(force_limit_n=FORCE_STOP_N, torque_limit_nm=np.inf)
@@ -60,10 +99,38 @@ class ServoDemo:
     def _verify_tcp(self):
         pose = self.kinematics.forward(self.robot.read_joint_state())
         from replace_disk_robot.core.rotation import rotation_matrix
-        if (not np.allclose(pose.position_m, self.data.site('pinch').xpos, atol=1e-7) or
-                not np.allclose(rotation_matrix(pose.quaternion_wxyz),
-                                self.data.site('drive_center').xmat.reshape(3,3), atol=1e-7)):
-            raise RuntimeError('TCP kinematics and scene disagree')
+        if self.model_name == 'ur5e':
+            expected_position = self.data.site('pinch').xpos
+            expected_rotation = self.data.site('drive_center').xmat.reshape(3,3)
+            tolerance = 1e-7
+        else:
+            # MJCF omits the massless URDF tool0 body.  Its fixed transform is
+            # 270 mm along tool0_and_camera_link +Z, with identical rotation.
+            base = self.data.body('jaka_base_link')
+            tool = self.data.body('tool0_and_camera_link')
+            world_rotation_base = base.xmat.reshape(3, 3)
+            world_rotation_tool = tool.xmat.reshape(3, 3)
+            world_position_tool0 = (
+                tool.xpos + world_rotation_tool @ np.array([0.0, 0.0, 0.27])
+            )
+            expected_position = world_rotation_base.T @ (
+                world_position_tool0 - base.xpos
+            )
+            expected_rotation = world_rotation_base.T @ world_rotation_tool
+            # The source URDF uses rounded RPY values while MJCF stores rounded
+            # quaternions, leading to roughly 1e-4 rad orientation difference.
+            tolerance = 2e-4
+        if (
+            not np.allclose(pose.position_m, expected_position, atol=tolerance)
+            or not np.allclose(
+                rotation_matrix(pose.quaternion_wxyz),
+                expected_rotation,
+                atol=tolerance,
+            )
+        ):
+            raise RuntimeError(
+                f'{self.model_name} TCP kinematics and MuJoCo model disagree'
+            )
 
     def stop(self, reason='stopped'):
         self.keys.clear()
@@ -95,13 +162,13 @@ class ServoDemo:
                 raise RuntimeError('Non-finite simulation state')
 
 
-def headless_report():
+def headless_report(model_name='ur5e', keyframe=None):
     """Exercise all twelve actual key mappings through servo and MuJoCo dynamics."""
     from replace_disk_robot.control.key_control import KEY_AXES
     from replace_disk_robot.core.rotation import rotation_matrix
     results = []
     for key, (translation, rotation) in KEY_AXES.items():
-        app = ServoDemo()
+        app = ServoDemo(model_name=model_name, keyframe=keyframe)
         initial = app.kinematics.forward(app.robot.read_joint_state())
         r0 = rotation_matrix(initial.quaternion_wxyz)
         app.keys.press(key)
@@ -127,7 +194,8 @@ def headless_report():
                       (translation.any() or np.linalg.norm(delta) < .001))
         results.append(dict(key=key, passed=passed, displacement_m=delta.tolist(),
                             rotation_tcp_rad=angular.tolist(), status=app.servo.status))
-    return dict(passed=all(r['passed'] for r in results), tests=results,
+    return dict(passed=all(r['passed'] for r in results), model=model_name,
+                keyframe=keyframe or ('home' if model_name == 'ur5e' else 'low'), tests=results,
                 scope='Synthetic key events through actual servo/dynamics; not an OS keyboard test')
 
 
@@ -157,7 +225,9 @@ def run_window(app, plot_wrench=False):
     context = None
     plotter = None
     try:
-        window = glfw.create_window(1200, 850, 'Cartesian servo', None, None)
+        window = glfw.create_window(
+            1200, 850, f'Cartesian servo | {app.model_name}', None, None,
+        )
         if window is None:
             raise RuntimeError('Cannot create servo window')
         glfw.make_context_current(window)
@@ -166,8 +236,13 @@ def run_window(app, plot_wrench=False):
         context = mujoco.MjrContext(app.model, mujoco.mjtFontScale.mjFONTSCALE_150)
         camera = mujoco.MjvCamera()
         camera.type = mujoco.mjtCamera.mjCAMERA_FREE
-        camera.lookat[:] = [.35, 0, .4]
-        camera.distance, camera.azimuth, camera.elevation = 1.25, 135, -25
+        if app.model_name == 'ur5e':
+            camera.lookat[:] = [.35, 0, .4]
+            camera.distance = 1.25
+        else:
+            camera.lookat[:] = app.data.body('jaka_base_link').xpos + [0, 0, .35]
+            camera.distance = 1.8
+        camera.azimuth, camera.elevation = 135, -25
         option = mujoco.MjvOption()
         if plot_wrench:
             from replace_disk_robot.visual import ProcessTypePlotter
@@ -220,7 +295,11 @@ def run_window(app, plot_wrench=False):
             plotter.update(app.last_wrench, app.data.time)
         deadline = time.monotonic()
         next_frame = deadline
-        print('W/S up/down; A/D left/right; R/F insert/retract; Q/E yaw; Up/Down pitch; Left/Right roll')
+        forward_label = 'insert/retract' if app.model_name == 'ur5e' else 'forward/back'
+        print(f'Model: {app.model_name}; keyframe: {app.keyframe_name}; '
+              f'translation frame: {app.command_frame}')
+        print(f'W/S up/down; A/D left/right; R/F {forward_label}; '
+              'Q/E yaw; Up/Down pitch; Left/Right roll')
         print('Click ROBOT window to control. Plot window does not accept robot keys.')
         print('Hold to move; release to hold. Space stop; Enter resume; Esc exit.')
         print('Focus loss pauses; clicking ROBOT window resumes only that focus pause.')
@@ -241,7 +320,9 @@ def run_window(app, plot_wrench=False):
             status = control_status(app)
             if status != previous_status:
                 print(f'[servo] {status}', flush=True)
-                glfw.set_window_title(window, f'Cartesian servo | {status}')
+                glfw.set_window_title(
+                    window, f'Cartesian servo | {app.model_name} | {status}',
+                )
                 previous_status = status
             if plotter is not None and plotter.error and not plot_error_reported:
                 print(f'[plot] Plot disabled; robot window remains active:\n{plotter.error}', flush=True)
@@ -253,7 +334,7 @@ def run_window(app, plot_wrench=False):
                 mujoco.mjv_updateScene(app.model,app.data,option,None,camera,mujoco.mjtCatBit.mjCAT_ALL,scene)
                 mujoco.mjr_render(viewport,scene,context)
                 mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_NORMAL, mujoco.mjtGridPos.mjGRID_TOPLEFT,
-                    viewport, 'W/S up/down | A/D left/right | R/F insert/retract\nQ/E yaw | Arrows: pitch / roll\nSpace stop | Enter resume | Esc exit | Force stop: 20 N',
+                    viewport, f'W/S up/down | A/D left/right | R/F {forward_label}\nQ/E yaw | Arrows: pitch / roll\nSpace stop | Enter resume | Esc exit | Force stop: 20 N',
                     status, context)
                 glfw.swap_buffers(window)
             time.sleep(.001)
@@ -272,13 +353,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--linear-speed', type=float, default=.01, help='m/s (default 0.01)')
     parser.add_argument('--angular-speed-deg', type=float, default=5., help='degrees/s (default 5)')
+    parser.add_argument('--model', choices=MODEL_CHOICES, default='ur5e',
+                        help='MuJoCo robot model (default: ur5e)')
+    parser.add_argument('--keyframe',
+                        help='initial keyframe (default: ur5e=home, jaka=low)')
     parser.add_argument('--headless', action='store_true', help='run all twelve scripted key checks')
     parser.add_argument('--plot-wrench', action='store_true',
                         help='show live force and torque plots in a second window')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     if args.headless:
-        report = headless_report()
+        report = headless_report(args.model, args.keyframe)
         text = json.dumps(report, indent=2)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -288,7 +373,8 @@ def main():
             raise SystemExit(1)
     else:
         run_window(
-            ServoDemo(args.linear_speed, np.deg2rad(args.angular_speed_deg)),
+            ServoDemo(args.linear_speed, np.deg2rad(args.angular_speed_deg),
+                      model_name=args.model, keyframe=args.keyframe),
             plot_wrench=args.plot_wrench,
         )
 

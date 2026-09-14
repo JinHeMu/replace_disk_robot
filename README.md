@@ -46,12 +46,18 @@ MUJOCO_GL=egl python examples/capture_scene.py
 ## 键盘控制末端
 
 ```bash
+# 默认 UR5e 精密插入场景
 python examples/keyboard_servo.py
 # 同时显示腕部 Fx/Fy/Fz 和 Tx/Ty/Tz 动态曲线
 python examples/keyboard_servo.py --plot-wrench
+# Tracer + JAKA ZU5；只控制 joint_1～joint_6
+python examples/keyboard_servo.py --model jaka
+# 两个模型的无界面动力学按键回归
+python examples/keyboard_servo.py --model ur5e --headless
+python examples/keyboard_servo.py --model jaka --headless
 ```
 
-按住 W/S 升降、A/D 左右平移、R/F 向插口前进/后退、Q/E 左右偏转；↑/↓ 抬头低头、←/→ 自旋。松键保持，空格停止，Enter 恢复，Esc 退出。默认 10 mm/s、5°/s；平移按世界坐标，姿态按 TCP 自身轴，旋转中心为 `pinch`。
+按住 W/S 升降、A/D 左右平移、R/F 前进/后退、Q/E 左右偏转；↑/↓ 抬头低头、←/→ 自旋。松键保持，空格停止，Enter 恢复，Esc 退出。默认 10 mm/s、5°/s。UR5e 平移在 `world` 表达、旋转中心为 `pinch`；JAKA 平移在 `jaka_base_link` 表达、TCP 为 `tool0`。JAKA 默认使用非奇异的 `low` keyframe，也可用 `--keyframe` 显式选择模型中已有的 keyframe。
 
 键盘与 Servo 独立，详见 [接口、按键和验证说明](docs/07_键盘与笛卡尔Servo.md)。该入口用于无接触手动点动，不是力控插入。
 
@@ -60,6 +66,7 @@ python examples/keyboard_servo.py --plot-wrench
 - `load_model()` / `reset_home()`：加载场景、恢复已夹持初始状态；`home` 的控制量含静态重力平衡偏置。展示入口保持这些控制量，不重新发送未经补偿的关节位置。
 - `MujocoRobotAdapter`：保留命名关节位置和夹爪控制接口。此场景以 `grasp_lock_*` 等式约束固定指关节；夹爪开口命令仍可写入，但不会释放理想抓持硬盘。
 - `MujocoWristFTAdapter`：原始与去皮六维数据，坐标系 `wrist_ft_site`；静态去皮不等于任意姿态重力补偿。
+- `JakaKinematics`：从完整 Tracer + JAKA URDF 只保留 `joint_1`～`joint_6`，输出 `jaka_base_link → tool0` 的 FK/Jacobian/IK；底盘不进入机械臂状态。
 - `MujocoCollisionChecker`：把夹持硬盘计入机器人，硬盘与插口接触不会被忽略。
 - 通用运动学、规划、核心合同和限力门保留。算法层不依赖 MuJoCo；`insertion_validation` 中的局部姿态求解和位置运动仅供仿真验收，不是生产控制器。
 
