@@ -1,0 +1,651 @@
+{
+  "model": "jaka",
+  "keyframe": "low",
+  "command_frame": "jaka_base_link",
+  "command_frame_mode": "base",
+  "base_frame": "jaka_base_link",
+  "admittance_axes": "translation",
+  "force_magnitude_n": 5.0,
+  "load_seconds": 1.5,
+  "release_seconds": 1.5,
+  "directions": [
+    {
+      "direction": "+X",
+      "external_force_base_n": [
+        5.0,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.49537634879969705,
+        -0.13863457628559128,
+        0.1415293513206357
+      ],
+      "displacement_m": [
+        0.01976486440316577,
+        -0.0004113625967324952,
+        -9.771028247040903e-05
+      ],
+      "displacement_along_force_m": 0.01976486440316577,
+      "perpendicular_displacement_m": 0.0004228078585964889,
+      "steady_offset_m": [
+        0.02,
+        -3.9670023309991e-18,
+        5.757313666346963e-22
+      ],
+      "released_position_m": [
+        0.47589664788306024,
+        -0.1379990681340166,
+        0.141742745884624
+      ],
+      "released_residual_m": [
+        0.00028516348652896095,
+        0.00022414555484218113,
+        0.00011568428151786936
+      ],
+      "final_offset_m": [
+        4.373158504108332e-05,
+        -6.7362182468894295e-21,
+        1.4506445462875411e-24
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    },
+    {
+      "direction": "-X",
+      "external_force_base_n": [
+        -5.0,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.45589596342191785,
+        -0.1378544749404162,
+        0.14173883592499603
+      ],
+      "displacement_m": [
+        -0.019715520974613432,
+        0.000368738748442593,
+        0.00011177432188991254
+      ],
+      "displacement_along_force_m": 0.019715520974613432,
+      "perpendicular_displacement_m": 0.0003853073625522353,
+      "steady_offset_m": [
+        -0.02,
+        4.0514499962532544e-18,
+        -2.121228262488541e-22
+      ],
+      "released_position_m": [
+        0.4753569805827156,
+        -0.13844251038017888,
+        0.1415145904799836
+      ],
+      "released_residual_m": [
+        -0.00025450381381569853,
+        -0.00021929669132009222,
+        -0.00011247112312251506
+      ],
+      "final_offset_m": [
+        -4.373158504108332e-05,
+        7.686294088478568e-21,
+        -3.9886214052654343e-25
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    },
+    {
+      "direction": "+Y",
+      "external_force_base_n": [
+        0.0,
+        5.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.47551281316511573,
+        -0.1191040068156349,
+        0.14167649307907348
+      ],
+      "displacement_m": [
+        -9.867123141554801e-05,
+        0.019119206873223882,
+        4.94314759673653e-05
+      ],
+      "displacement_along_force_m": 0.019119206873223882,
+      "perpendicular_displacement_m": 0.00011036069375177397,
+      "steady_offset_m": [
+        -3.909868120880204e-18,
+        0.02,
+        3.007604644061739e-22
+      ],
+      "released_position_m": [
+        0.4756905759645033,
+        -0.13759032594919052,
+        0.14156751974324278
+      ],
+      "released_residual_m": [
+        7.909156797203387e-05,
+        0.0006328877396682697,
+        -5.954185986334348e-05
+      ],
+      "final_offset_m": [
+        -8.247964614081913e-21,
+        4.373158504108332e-05,
+        5.203824411371503e-25
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    },
+    {
+      "direction": "-Y",
+      "external_force_base_n": [
+        0.0,
+        -5.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.47576467408247586,
+        -0.15744376844839325,
+        0.1415747274659792
+      ],
+      "displacement_m": [
+        0.00015318968594457694,
+        -0.019220554759534464,
+        -5.2334137126908153e-05
+      ],
+      "displacement_along_force_m": 0.019220554759534464,
+      "perpendicular_displacement_m": 0.00016188249376821492,
+      "steady_offset_m": [
+        3.915737399941279e-18,
+        -0.02,
+        -7.359552505140246e-23
+      ],
+      "released_position_m": [
+        0.47551749650646924,
+        -0.1388169635215743,
+        0.14168985495796738
+      ],
+      "released_residual_m": [
+        -9.398789006204167e-05,
+        -0.0005937498327155122,
+        6.279335486125692e-05
+      ],
+      "final_offset_m": [
+        8.40018279788869e-21,
+        -4.373158504108332e-05,
+        -2.2881562172777784e-25
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    },
+    {
+      "direction": "+Z",
+      "external_force_base_n": [
+        0.0,
+        0.0,
+        5.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.475561837105386,
+        -0.13819658457620718,
+        0.16153764139494153
+      ],
+      "displacement_m": [
+        -4.9647291145260564e-05,
+        2.6629112651610498e-05,
+        0.019910579791835414
+      ],
+      "displacement_along_force_m": 0.019910579791835414,
+      "perpendicular_displacement_m": 5.6337937117669034e-05,
+      "steady_offset_m": [
+        8.498136410070293e-22,
+        3.9213435138715553e-22,
+        0.02
+      ],
+      "released_position_m": [
+        0.4757627709352484,
+        -0.13824326949349194,
+        0.1418118654852395
+      ],
+      "released_residual_m": [
+        0.00015128653871709918,
+        -2.0055804633156704e-05,
+        0.0001848038821333775
+      ],
+      "final_offset_m": [
+        2.033702498686832e-24,
+        7.312129320427278e-25,
+        4.373158504108332e-05
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    },
+    {
+      "direction": "-Z",
+      "external_force_base_n": [
+        0.0,
+        0.0,
+        -5.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.47566700602282597,
+        -0.13829634432023294,
+        0.12174794731208011
+      ],
+      "displacement_m": [
+        5.55216262946856e-05,
+        -7.313063137415199e-05,
+        -0.019879114291026012
+      ],
+      "displacement_along_force_m": 0.019879114291026012,
+      "perpendicular_displacement_m": 9.181906246302468e-05,
+      "steady_offset_m": [
+        1.433511958472786e-22,
+        7.153395474489371e-23,
+        -0.02
+      ],
+      "released_position_m": [
+        0.4754933147753164,
+        -0.13817833958556258,
+        0.14143487147357992
+      ],
+      "released_residual_m": [
+        -0.00011816962121485863,
+        4.4874103296205226e-05,
+        -0.00019219012952620407
+      ],
+      "final_offset_m": [
+        1.86980764094527e-25,
+        -9.308131277111515e-26,
+        -4.373158504108332e-05
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    }
+  ],
+  "force_sweep": [
+    {
+      "direction": "+X",
+      "external_force_base_n": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.48055681527777977,
+        -0.13825860633084291,
+        0.14159477296198186
+      ],
+      "displacement_m": [
+        0.004945330881248489,
+        -3.5392641984127726e-05,
+        -3.228864112425622e-05
+      ],
+      "displacement_along_force_m": 0.004945330881248489,
+      "perpendicular_displacement_m": 4.790819817387887e-05,
+      "steady_offset_m": [
+        0.004989524380409751,
+        -7.68599311919365e-19,
+        1.1072979961257736e-22
+      ],
+      "released_position_m": [
+        0.4756776476063585,
+        -0.13814606445314323,
+        0.14166620633775118
+      ],
+      "released_residual_m": [
+        6.616320982721913e-05,
+        7.714923571555676e-05,
+        3.9144734645057966e-05
+      ],
+      "final_offset_m": [
+        1.0458367031667156e-05,
+        -1.7361501619446743e-21,
+        3.0896908863316973e-25
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 1.0
+    },
+    {
+      "direction": "+X",
+      "external_force_base_n": [
+        2.5,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.4879725648324108,
+        -0.13835594718275587,
+        0.14159311403980934
+      ],
+      "displacement_m": [
+        0.012361080435879523,
+        -0.00013273349389708589,
+        -3.394756329677673e-05
+      ],
+      "displacement_along_force_m": 0.012361080435879523,
+      "perpendicular_displacement_m": 0.0001370059029966096,
+      "steady_offset_m": [
+        0.012473810951024376,
+        -1.7061708327410475e-18,
+        4.711567883561658e-22
+      ],
+      "released_position_m": [
+        0.47575163127656384,
+        -0.13812293088692912,
+        0.14167037314519104
+      ],
+      "released_residual_m": [
+        0.0001401468800325545,
+        0.00010028280192966865,
+        4.331154208492283e-05
+      ],
+      "final_offset_m": [
+        2.614591757916788e-05,
+        -3.6337432646913814e-21,
+        1.0126162437824098e-24
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 2.5
+    },
+    {
+      "direction": "+X",
+      "external_force_base_n": [
+        5.0,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.49537634879969705,
+        -0.13863457628559128,
+        0.1415293513206357
+      ],
+      "displacement_m": [
+        0.01976486440316577,
+        -0.0004113625967324952,
+        -9.771028247040903e-05
+      ],
+      "displacement_along_force_m": 0.01976486440316577,
+      "perpendicular_displacement_m": 0.0004228078585964889,
+      "steady_offset_m": [
+        0.02,
+        -3.9670023309991e-18,
+        5.757313666346963e-22
+      ],
+      "released_position_m": [
+        0.47589664788306024,
+        -0.1379990681340166,
+        0.141742745884624
+      ],
+      "released_residual_m": [
+        0.00028516348652896095,
+        0.00022414555484218113,
+        0.00011568428151786936
+      ],
+      "final_offset_m": [
+        4.373158504108332e-05,
+        -6.7362182468894295e-21,
+        1.4506445462875411e-24
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 5.0
+    },
+    {
+      "direction": "+X",
+      "external_force_base_n": [
+        7.5,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.4954053786771344,
+        -0.13864794372232647,
+        0.14154753273492238
+      ],
+      "displacement_m": [
+        0.01979389428060313,
+        -0.0004247300334676851,
+        -7.95288681837425e-05
+      ],
+      "displacement_along_force_m": 0.01979389428060313,
+      "perpendicular_displacement_m": 0.0004321116085041549,
+      "steady_offset_m": [
+        0.02,
+        -6.407445786505667e-18,
+        1.9136545575857464e-21
+      ],
+      "released_position_m": [
+        0.47593416868850963,
+        -0.1380538768595963,
+        0.14176255465437504
+      ],
+      "released_residual_m": [
+        0.0003226842919783479,
+        0.00016933682926248417,
+        0.00013549305126892008
+      ],
+      "final_offset_m": [
+        4.723435781325074e-05,
+        -1.3781148958779215e-20,
+        4.383288672588001e-24
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 7.5
+    },
+    {
+      "direction": "+X",
+      "external_force_base_n": [
+        10.0,
+        0.0,
+        0.0
+      ],
+      "initial_position_m": [
+        0.4756114843965313,
+        -0.1382232136888588,
+        0.14162706160310612
+      ],
+      "loaded_position_m": [
+        0.4953807965530008,
+        -0.13868632224840802,
+        0.14155148976469556
+      ],
+      "displacement_m": [
+        0.019769312156469543,
+        -0.00046310855954923014,
+        -7.55718384105597e-05
+      ],
+      "displacement_along_force_m": 0.019769312156469543,
+      "perpendicular_displacement_m": 0.0004692341000913239,
+      "steady_offset_m": [
+        0.02,
+        -9.351169476733505e-18,
+        2.803221715977207e-21
+      ],
+      "released_position_m": [
+        0.4759295724734902,
+        -0.13804692403073837,
+        0.14176690373895207
+      ],
+      "released_residual_m": [
+        0.0003180880769589334,
+        0.00017628965812041542,
+        0.00013984213584594674
+      ],
+      "final_offset_m": [
+        4.992037865010272e-05,
+        -1.9471282788647984e-20,
+        6.162114615134423e-24
+      ],
+      "status": "tracking",
+      "fault": null,
+      "contact_count": 0,
+      "initial_quaternion_wxyz": [
+        5.7701163227062734e-05,
+        0.712848141814626,
+        -0.7013184170301467,
+        -3.62813959164651e-05
+      ],
+      "command_frame": "jaka_base_link",
+      "command_frame_mode": "base",
+      "force_n": 10.0
+    }
+  ],
+  "artifacts": {
+    "directions_png": "directions.png",
+    "step_response_png": "step_response_plus_x.png",
+    "force_sweep_png": "force_sweep.png",
+    "step_response_gif": "step_response_plus_x.gif",
+    "loaded_poses_png": "loaded_poses.png"
+  },
+  "scope": "Virtual F/T injection through the admittance chain; MuJoCo dynamics are real, the external wrench is not an actuator force.",
+  "elapsed_s": 20.525492668151855
+}

@@ -170,14 +170,14 @@ class AdmittanceController:
             - self.config.stiffness * self._offset
         ) / self.config.mass
 
-        velocity = self._velocity + acceleration * dt_s
-        offset = self._offset + velocity * dt_s
-
+        # Limit the velocity *before* integrating it into the offset; otherwise
+        # one step may still move farther than max_velocity * dt_s.
         velocity = np.clip(
-            velocity,
+            self._velocity + acceleration * dt_s,
             -self.config.max_velocity,
             self.config.max_velocity,
         )
+        offset = self._offset + velocity * dt_s
         clipped_offset = np.clip(
             offset,
             -self.config.max_offset,

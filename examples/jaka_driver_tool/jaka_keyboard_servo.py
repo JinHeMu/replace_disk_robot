@@ -6,11 +6,10 @@ not power on, enable, or disable the robot by itself; run ``jaka_start.py``
 first and ``jaka_stop.py`` afterwards.
 
 The initial Cartesian target is always the measured joint state at startup, not
-a MuJoCo keyframe.  The default command frame is ``jaka_base_link`` (base):
-W/S/A/D and Q/E/arrow keys use base axes, while R/F are special and move along
-the current ``tool0`` +Z/-Z (blue) axis for insertion/retraction.  Use
-``--command-frame tool`` if you want every keyboard velocity expressed in the
-current ``tool0`` frame instead.
+a MuJoCo keyframe.  R/F are always the insertion pair and move along the current
+``tool0`` +Z/-Z (blue) axis.  The default command frame is ``jaka_base_link``
+(base): W/S/A/D and Q/E/arrow keys use base axes.  With ``--command-frame tool``
+those other keys use the current ``tool0`` frame instead; R/F stay on tool0 Z.
 
 The 125 Hz loop reads EDG state, applies the same damped Cartesian servo and
 force gate used by the simulation, and sends joint targets through
@@ -77,8 +76,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--angular-speed-deg", type=float, default=5.0,
                         help="keyboard angular speed in deg/s (default: 5)")
     parser.add_argument("--command-frame", choices=("base", "tool"), default="base",
-                        help=("keyboard velocity frame. base=jaka_base_link (default) "
-                              "with R/F along current tool0 +Z, tool=all keys in current tool0 frame"))
+                        help=("keyboard velocity frame. base=jaka_base_link (default) for "
+                              "W/S/A/D/rotations, tool=those keys in current tool0 frame; "
+                              "R/F always insert/retract along current tool0 +Z/-Z"))
     parser.add_argument("--seconds", type=float, default=0.0,
                         help="stop after this many seconds; 0 means run until Esc/window close")
     parser.add_argument("--headless", action="store_true",
@@ -224,10 +224,11 @@ class JakaKeyboardServo:
     def _jog_to_servo(self) -> CartesianJog:
         """Map keyboard keys to Servo's base-linear/intrinsic-TCP convention.
 
-        * tool mode: every key is expressed in the current tool0 frame.
+        * tool mode: W/S/A/D and rotations use the current tool0 frame.  R/F
+          still follow the current tool0 +Z/-Z insertion axis.
         * base mode: W/S/A/D and Q/E/arrow keys use ``jaka_base_link`` axes,
-          while R/F move along the current tool0 +Z/-Z for insertion and
-          retraction.  Base-axis rotations are converted to intrinsic TCP
+          while R/F likewise move along the current tool0 +Z/-Z for insertion
+          and retraction.  Base-axis rotations are converted to intrinsic TCP
           angular velocity.
         """
         target = self.servo.target
@@ -237,7 +238,7 @@ class JakaKeyboardServo:
         base_from_tool = rotation_matrix(pose.quaternion_wxyz)
 
         if self.command_frame == self.tool_frame:
-            command = self.keys.command()
+            command = self.keys.command(forward_axis=np.array([0.0, 0.0, 1.0]))
             return CartesianJog(
                 self.base_frame,
                 base_from_tool @ command.linear_m_s,

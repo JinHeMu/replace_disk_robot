@@ -1,0 +1,11 @@
+# Dimensionless reward weights.  Hard safety thresholds remain in GuardConfig.
+reward:
+  progress_weight: 1.0
+  lateral_force_weight: 0.20
+  lateral_moment_weight: 0.10
+  axial_force_soft_weight: 0.30
+  action_weight: 0.05
+  action_rate_weight: 0.05
+  time_weight: 0.02
+  success_bonus: 10.0
+  fault_penalty: 10.0

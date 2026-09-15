@@ -168,6 +168,72 @@ def test_invalid_frames_nonfinite_and_time_rejected():
         servo.submit(CartesianJog.zero(),-1.)
 
 
+def test_submit_pose_tracks_translation_with_bounded_speed_and_holds():
+    servo,state = setup_servo(config=ServoConfig(
+        pose_linear_gain_s_inv=20.0,
+        pose_linear_speed_m_s=.05,
+        command_timeout_s=.2,
+    ))
+    reference = Pose('world',[.01,0,0],[1,0,0,0])
+    actual = state
+    for index in range(1,60):
+        servo.submit_pose(reference,(index-1)*.01)
+        target = servo.update(actual,.01,index*.01)
+        actual = target  # Ideal actuator follows the commanded joint target.
+    # The pose deadband intentionally stops just short of the exact target.
+    np.testing.assert_allclose(target.position_rad[0],.01,atol=2e-5)
+    assert servo.status == 'holding'
+    # Refreshing the same pose keeps holding after the original timeout would
+    # have expired if it had not been refreshed.
+    servo.submit_pose(reference,.59)
+    target = servo.update(actual,.01,.60)
+    np.testing.assert_allclose(target.position_rad[0],.01,atol=2e-5)
+
+
+def test_submit_pose_frame_error_timeout_and_halt_are_explicit():
+    servo,state = setup_servo()
+    servo.submit_pose(Pose('camera',[0,0,.01],[1,0,0,0]),0.)
+    with pytest.raises(ValueError):
+        servo.update(state,.01,.01)
+
+    servo,state = setup_servo()
+    servo.submit_pose(Pose('world',[0,0,.01],[1,0,0,0]),0.)
+    moved = servo.update(state,.01,.01)
+    held = servo.update(state,.01,.30)
+    np.testing.assert_array_equal(held.position_rad,moved.position_rad)
+    assert servo.status == 'command_timeout'
+
+    servo,state = setup_servo(config=ServoConfig(command_timeout_s=.2))
+    servo.submit_pose(Pose('world',[0,0,.01],[1,0,0,0]),0.)
+    servo.update(state,.01,.01)
+    servo.halt(state,'stopped')
+    assert servo.pose_command is None
+    assert servo.pose_command_time is None
+    servo.reset(state)
+    assert servo.pose_command is None
+
+    servo,state = setup_servo()
+    servo.submit_pose(Pose('world',[0,0,.01],[1,0,0,0]),.5)
+    with pytest.raises(ValueError):
+        servo.update(state,.01,.01)
+
+
+def test_velocity_and_pose_submissions_replace_each_other():
+    servo,state = setup_servo(config=ServoConfig(
+        pose_linear_gain_s_inv=20.0,
+        pose_linear_speed_m_s=.05,
+    ))
+    servo.submit_pose(Pose('world',[0,0,.01],[1,0,0,0]),0.)
+    servo.submit(CartesianJog('world',[0,0,.01],[0,0,0]),.01)
+    assert servo.pose_command is None
+    target = servo.update(state,.01,.02)
+    assert target.position_rad[2] > 0.0
+
+    servo.submit_pose(Pose('world',[0,0,.02],[1,0,0,0]),.03)
+    assert servo.command is None
+    assert servo.pose_command is not None
+
+
 def test_control_is_backend_and_window_independent():
     root = Path(__file__).resolve().parents[1]/'src/replace_disk_robot/control'
     source = '\n'.join(p.read_text() for p in root.glob('*.py'))

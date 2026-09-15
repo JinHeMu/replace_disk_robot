@@ -152,41 +152,48 @@ class JakaKinematicsTest(unittest.TestCase):
         actuator_ids = np.array([model.actuator(name).id for name in JAKA_ACTUATORS])
         np.testing.assert_allclose(data.ctrl[actuator_ids], expected, atol=1e-12)
 
-    def test_keyboard_servo_selects_jaka_tool_frame_without_base_dofs(self) -> None:
+    def test_keyboard_servo_defaults_to_jaka_base_frame(self) -> None:
         app = ServoDemo(model_name="jaka")
         self.assertEqual(app.robot.read_joint_state().names, JAKA_JOINT_NAMES)
-        self.assertEqual(app.command_frame_mode, "tool")
-        self.assertEqual(app.command_frame, "tool0")
+        self.assertEqual(app.command_frame_mode, "base")
+        self.assertEqual(app.command_frame, "jaka_base_link")
+        self.assertEqual(app.keys.base_frame, "jaka_base_link")
         self.assertEqual(app.base_frame, "jaka_base_link")
         self.assertEqual(app.ft.read_wrench().frame_id, "tcp_fts_site")
         self.assertEqual(app.keyframe_name, "low")
 
         initial = app.kinematics.forward(app.robot.read_joint_state())
-        tool_x_in_base = rotation_matrix(initial.quaternion_wxyz) @ np.array([1.0, 0.0, 0.0])
+        rotation = rotation_matrix(initial.quaternion_wxyz)
+        tool_x_in_base = rotation @ np.array([1.0, 0.0, 0.0])
+        tool_z_in_base = rotation @ np.array([0.0, 0.0, 1.0])
         app.keys.press("r")
         for _ in range(25):
             app.tick()
         end = app.kinematics.forward(app.robot.read_joint_state())
         displacement = end.position_m - initial.position_m
-        self.assertGreater(float(displacement @ tool_x_in_base), 0.0005)
+        # R/F are always insert/retract along tool0 +Z, even in the default
+        # base mode; tool0 +X must not be used for insertion.
+        self.assertGreater(float(displacement @ tool_z_in_base), 0.0005)
+        self.assertLess(abs(float(displacement @ tool_x_in_base)), 0.0003)
         self.assertIsNone(app.servo.fault)
 
-    def test_keyboard_servo_can_still_use_jaka_base_frame(self) -> None:
-        app = ServoDemo(model_name="jaka", command_frame="base")
-        self.assertEqual(app.command_frame_mode, "base")
-        self.assertEqual(app.command_frame, "jaka_base_link")
-        self.assertEqual(app.keys.base_frame, "jaka_base_link")
+    def test_keyboard_servo_can_opt_into_jaka_tool_frame(self) -> None:
+        app = ServoDemo(model_name="jaka", command_frame="tool")
+        self.assertEqual(app.command_frame_mode, "tool")
+        self.assertEqual(app.command_frame, "tool0")
+        self.assertEqual(app.keys.base_frame, "tool0")
 
-        # In JAKA base mode R/F are special: they move along the current
-        # tool0 +Z (blue) axis, while other keys remain in base axes.
         initial = app.kinematics.forward(app.robot.read_joint_state())
-        tool_z_in_base = rotation_matrix(initial.quaternion_wxyz) @ np.array([0.0, 0.0, 1.0])
+        rotation = rotation_matrix(initial.quaternion_wxyz)
+        tool_x_in_base = rotation @ np.array([1.0, 0.0, 0.0])
+        tool_z_in_base = rotation @ np.array([0.0, 0.0, 1.0])
         app.keys.press("r")
         for _ in range(25):
             app.tick()
         end = app.kinematics.forward(app.robot.read_joint_state())
         displacement = end.position_m - initial.position_m
         self.assertGreater(float(displacement @ tool_z_in_base), 0.0005)
+        self.assertLess(abs(float(displacement @ tool_x_in_base)), 0.0003)
         self.assertIsNone(app.servo.fault)
 
     def test_wrong_joint_order_is_rejected(self) -> None:

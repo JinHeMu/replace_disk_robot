@@ -1,0 +1,10 @@
+# Optional Torch SAC hyper-parameters.  Not needed for the NumPy demo.
+sac:
+  hidden_sizes: [256, 256]
+  learning_rate: 0.0003
+  buffer_size: 200000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  target_entropy: -5.0
+  seed: 0

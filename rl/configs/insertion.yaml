@@ -1,0 +1,37 @@
+# P1/P2 insertion baseline and actor observation scales.
+# Units are explicit in the key names; angular values are radians.
+insertion:
+  control_hz: 100.0
+  rl_hz: 20.0
+  settle_time_s: 0.5
+  max_episode_time_s: 35.0
+  forward_speed_m_s: 0.0025
+  max_forward_speed_m_s: 0.0040
+  max_retract_speed_m_s: 0.0010
+  target_axial_force_n: 7.5
+  axial_force_gain_m_s_n: 0.0010
+  axial_soft_limit_n: 8.5
+  lateral_force_gain_m_s_n: 0.0010
+  lateral_speed_limit_m_s: 0.0035
+  angular_torque_gain_rad_s_nm: 0.020
+  angular_speed_limit_rad_s: 0.008726646259971648
+  success_depth_m: 0.050
+  stable_steps: 5
+  max_lateral_error_m: 0.0015
+  max_pitch_yaw_error_rad: 0.017453292519943295
+  max_command_forward_m_s: 0.005
+  max_command_lateral_m_s: 0.004
+  max_command_angular_rad_s: 0.013089969389957473
+
+observation:
+  schema_version: residual-insertion-v1
+  clip_abs: 3.0
+  depth_scale_m: 0.060
+  alignment_scale_m: 0.0015
+  angle_scale_rad: 0.017453292519943295
+  linear_velocity_scale_m_s: 0.005
+  angular_velocity_scale_rad_s: 0.013089969389957473
+  force_scale_n: 10.0
+  torque_scale_nm: 1.0
+  wrench_rate_time_s: 0.05
+  command_scale: [0.005, 0.004, 0.004, 0.013089969389957473, 0.013089969389957473]

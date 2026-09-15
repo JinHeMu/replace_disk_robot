@@ -28,7 +28,7 @@ src/replace_disk_robot/adapters/jaka/jaka_driver/x86_64-linux-gnu/
 | `jaka_stop.py` | 关闭 servo、关闭 EDG、下使能、下电、logout |
 | `jaka_ft_test.py` | 只读采集 EDG 力/力矩，可输出 CSV |
 | `jaka_edg_servo.py` | 125 Hz EDG 关节 servo，默认保持当前位置，可选正弦测试 |
-| `jaka_keyboard_servo.py` | 实机键盘笛卡尔 servo；默认 base，W/S/A/D 等按 `jaka_base_link`，R/F 沿当前 tool0 +Z 插入/退出；初始目标为启动时实测姿态 |
+| `jaka_keyboard_servo.py` | 实机键盘笛卡尔 servo；R/F 始终沿当前 tool0 +Z/−Z 插入/退出，默认 base 模式下 W/S/A/D 等按 `jaka_base_link`；初始目标为启动时实测姿态 |
 
 本地接口对应关系：
 
@@ -146,8 +146,9 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py \
 ```
 
 默认按 `jaka_base_link` 控制：W/S/A/D 和 Q/E/方向键使用 base 轴，
-R/F 特殊，沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出。初始姿态直接读取启动时的实测关节角。
-需要所有键都相对末端 `tool0` 控制时加 `--command-frame tool`。
+R/F 始终沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出。初始姿态直接读取启动时的实测关节角。
+需要 W/S/A/D 和姿态旋转相对末端 `tool0` 控制时加 `--command-frame tool`，
+此时 R/F 仍然沿 `tool0` +Z/−Z，不会退回默认的 +X/−X。
 
 运行后会打开一个名为 `JAKA keyboard servo` 的 GLFW 窗口；键盘按键必须在
 该窗口内输入，不能在启动脚本的终端里按。终端里出现的 `s`、`w` 等字符

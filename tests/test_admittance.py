@@ -160,6 +160,24 @@ class AdmittanceControllerTest(unittest.TestCase):
         self.assertAlmostEqual(state.offset[0], cfg.max_offset[0])
         self.assertLessEqual(abs(state.velocity[0]), cfg.max_velocity[0])
 
+    def test_velocity_limit_is_applied_before_offset_integration(self) -> None:
+        cfg = config(
+            mass=1.0,
+            damping=1e-9,
+            stiffness=0.0,
+            max_offset=np.full(6, 10.0),
+            max_velocity=np.full(6, 5.0),
+            max_dt_s=0.01,
+        )
+        controller = AdmittanceController(cfg)
+
+        controller.update(nominal(), wrench(force=(1e6, 0.0, 0.0)), dt_s=0.01)
+
+        state = controller.state()
+        self.assertLessEqual(abs(state.velocity[0]), cfg.max_velocity[0] + 1e-12)
+        # One step cannot move farther than max_velocity * dt_s.
+        self.assertLessEqual(abs(state.offset[0]), cfg.max_velocity[0] * 0.01 + 1e-12)
+
     def test_state_returns_copies_in_controller_frame(self) -> None:
         controller = AdmittanceController(config())
         state = controller.state()
