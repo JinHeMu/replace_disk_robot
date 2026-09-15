@@ -7,9 +7,10 @@ first and ``jaka_stop.py`` afterwards.
 
 The initial Cartesian target is always the measured joint state at startup, not
 a MuJoCo keyframe.  R/F are always the insertion pair and move along the current
-``tool0`` +Z/-Z (blue) axis.  The default command frame is ``jaka_base_link``
-(base): W/S/A/D and Q/E/arrow keys use base axes.  With ``--command-frame tool``
-those other keys use the current ``tool0`` frame instead; R/F stay on tool0 Z.
+``tool0`` +Z/-Z (blue) axis.  In the default base mode, W/S use
+``jaka_base_link`` +/-Z and A/D use -X/+X (platform left/right); rotations use
+base axes.  With ``--command-frame tool`` those other keys use the current
+``tool0`` frame instead; R/F stay on tool0 Z.
 
 The 125 Hz loop reads EDG state, applies the same damped Cartesian servo and
 force gate used by the simulation, and sends joint targets through
@@ -65,6 +66,19 @@ _KEY_TO_NAME = {
     glfw.KEY_RIGHT: "right",
 }
 
+_RECOVERABLE_FAULTS = {
+    None,
+    "focus_lost",
+    "stopped",
+    "command_timeout",
+    "force_limit",
+    "tracking_error",
+    "loop_timeout",
+    "invalid_dt",
+    "invalid_wrench",
+}
+_FORCE_RESUME_RATIO = 0.8
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -77,7 +91,8 @@ def _parse_args() -> argparse.Namespace:
                         help="keyboard angular speed in deg/s (default: 5)")
     parser.add_argument("--command-frame", choices=("base", "tool"), default="base",
                         help=("keyboard velocity frame. base=jaka_base_link (default) for "
-                              "W/S/A/D/rotations, tool=those keys in current tool0 frame; "
+                              "W/S, A/D=-X/+X and rotations; tool=those keys in current "
+                              "tool0 frame; "
                               "R/F always insert/retract along current tool0 +Z/-Z"))
     parser.add_argument("--seconds", type=float, default=0.0,
                         help="stop after this many seconds; 0 means run until Esc/window close")
@@ -85,6 +100,8 @@ def _parse_args() -> argparse.Namespace:
                         help="run without GLFW and command zero velocity (requires --seconds)")
     parser.add_argument("--dry-run", action="store_true",
                         help="read EDG/F/T and keyboard; never enable servo or send motion")
+    parser.add_argument("--plot-wrench", action="store_true",
+                        help="show non-blocking live force/torque curves")
     parser.add_argument("--max-force-n", type=float, default=10.0,
                         help="stop when filtered force norm exceeds this value")
     parser.add_argument("--max-torque-nm", type=float, default=2.0,
@@ -110,6 +127,41 @@ def _ft_transforms(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
     if args.identity_transform:
         return np.eye(3), np.zeros(3)
     return DEFAULT_SENSOR_TO_TOOL_ROTATION, DEFAULT_TOOL_ARM_M
+
+
+def _base_translation_from_keys(
+    pressed: set[str],
+    tool_z_in_base: np.ndarray,
+    speed_m_s: float,
+) -> np.ndarray:
+    """Build the real-robot base-mode translation command.
+
+    The arm mount ``jaka_base_link`` is yawed -90 degrees relative to the
+    mobile platform.  Platform left/right is therefore jaka-base -X/+X.
+    R/F deliberately remain on the current tool +Z insertion axis.
+    """
+
+    tool_z = np.asarray(tool_z_in_base, dtype=float).copy()
+    norm = float(np.linalg.norm(tool_z))
+    if tool_z.shape != (3,) or not np.isfinite(tool_z).all() or norm < 1e-12:
+        raise ValueError("tool_z_in_base must be a finite non-zero 3-vector")
+    tool_z /= norm
+
+    linear = np.zeros(3)
+    if "w" in pressed:
+        linear += np.array([0.0, 0.0, 1.0])
+    if "s" in pressed:
+        linear -= np.array([0.0, 0.0, 1.0])
+    if "a" in pressed:
+        linear -= np.array([1.0, 0.0, 0.0])
+    if "d" in pressed:
+        linear += np.array([1.0, 0.0, 0.0])
+    if "r" in pressed:
+        linear += tool_z
+    if "f" in pressed:
+        linear -= tool_z
+    linear /= max(1.0, float(np.linalg.norm(linear)))
+    return linear * float(speed_m_s)
 
 
 class JakaKeyboardServo:
@@ -226,10 +278,10 @@ class JakaKeyboardServo:
 
         * tool mode: W/S/A/D and rotations use the current tool0 frame.  R/F
           still follow the current tool0 +Z/-Z insertion axis.
-        * base mode: W/S/A/D and Q/E/arrow keys use ``jaka_base_link`` axes,
-          while R/F likewise move along the current tool0 +Z/-Z for insertion
-          and retraction.  Base-axis rotations are converted to intrinsic TCP
-          angular velocity.
+        * base mode: W/S use base +/-Z; A/D use base -X/+X, which corresponds
+          to platform left/right for the -90-degree arm mounting; R/F move
+          along current tool0 +Z/-Z.  Base-axis rotations are converted to
+          intrinsic TCP angular velocity.
         """
         target = self.servo.target
         if target is None:
@@ -245,10 +297,15 @@ class JakaKeyboardServo:
                 command.angular_rad_s,
             )
 
-        command = self.keys.command(forward_axis=base_from_tool[:, 2])
+        command = self.keys.command()
+        linear = _base_translation_from_keys(
+            self.keys.pressed,
+            base_from_tool[:, 2],
+            self.args.linear_speed,
+        )
         return CartesianJog(
             self.base_frame,
-            command.linear_m_s,
+            linear,
             base_from_tool.T @ command.angular_rad_s,
         )
 
@@ -269,16 +326,60 @@ class JakaKeyboardServo:
                     print(f"[keyboard] hold-command warning: {exc}", file=sys.stderr)
         self.status = reason
 
-    def resume(self) -> None:
-        # Automatic resume is allowed only for keyboard/focus stops.  Force,
-        # tracking and communication faults require a deliberate restart.
-        if self.servo.fault not in (None, "focus_lost", "stopped", "command_timeout"):
-            return
+    def resume(self) -> bool:
+        """Resume a recoverable stop from fresh, verified robot feedback.
+
+        Enter never clears a force stop while the load is still close to the
+        trip threshold.  Resetting the Cartesian target to the current measured
+        joints prevents replaying the target that existed before the fault.
+        """
+
         self.keys.clear()
-        measured = self.arm.read_joint_state()
-        self.servo.reset(measured)
+        fault = self.servo.fault
+        if self.args.dry_run:
+            print("[keyboard] resume ignored in dry-run")
+            return False
+        if fault not in _RECOVERABLE_FAULTS:
+            print(f"[keyboard] {fault} is not recoverable with Enter; restart after inspection")
+            return False
+
+        try:
+            state = self.client.read_edg_state()
+            measured = JointState(self.arm.joint_names, state.joint_position_rad)
+            wrench = self.ft.read_wrench_from(state)
+        except Exception as exc:  # noqa: BLE001 - stay stopped on bad feedback
+            print(f"[keyboard] resume denied: feedback unavailable: {exc}", file=sys.stderr)
+            return False
+
+        wrench_vector = wrench.as_vector()
+        if not np.isfinite(wrench_vector).all():
+            print("[keyboard] resume denied: wrench is not finite", file=sys.stderr)
+            return False
+        force = float(np.linalg.norm(wrench.force_n))
+        torque = float(np.linalg.norm(wrench.torque_nm))
+        force_resume_limit = _FORCE_RESUME_RATIO * self.args.max_force_n
+        torque_resume_limit = _FORCE_RESUME_RATIO * self.args.max_torque_nm
+        if force > force_resume_limit or torque > torque_resume_limit:
+            print(
+                "[keyboard] resume denied: release the load first; "
+                f"|F|={force:.3f} N (need <= {force_resume_limit:.3f}), "
+                f"|T|={torque:.3f} Nm (need <= {torque_resume_limit:.3f})",
+                file=sys.stderr,
+            )
+            return False
+
+        try:
+            self.servo.reset(measured)
+        except (ValueError, RuntimeError) as exc:
+            print(f"[keyboard] resume denied: invalid joint state: {exc}", file=sys.stderr)
+            return False
+        self.last_wrench = wrench
         self.status = "holding"
-        print("[keyboard] resumed from measured pose")
+        print(
+            f"[keyboard] resumed from measured pose after {fault or 'hold'}; "
+            f"|F|={force:.3f} N |T|={torque:.3f} Nm"
+        )
+        return True
 
     def handle_focus(self, focused: bool) -> None:
         self.keys.clear()
@@ -290,9 +391,11 @@ class JakaKeyboardServo:
 
     def _status_text(self) -> str:
         if self.servo.fault:
-            if self.servo.fault in ("force_limit", "tracking_error", "invalid_wrench", "loop_timeout"):
-                return f"{self.servo.fault}: restart script after inspection"
-            return f"{self.servo.fault}: press Enter to resume"
+            if self.servo.fault == "force_limit":
+                return "force_limit: release load, then press Enter"
+            if self.servo.fault in _RECOVERABLE_FAULTS:
+                return f"{self.servo.fault}: press Enter to re-anchor and resume"
+            return f"{self.servo.fault}: restart script after inspection"
         return self.status
 
     # ------------------------------------------------------------------
@@ -387,12 +490,26 @@ def _on_focus(window, focused: bool) -> None:
         app.handle_focus(bool(focused))
 
 
+def _window_title(app: JakaKeyboardServo) -> str:
+    force = 0.0
+    torque = 0.0
+    if app.last_wrench is not None:
+        force = float(np.linalg.norm(app.last_wrench.force_n))
+        torque = float(np.linalg.norm(app.last_wrench.torque_nm))
+    return (
+        f"JAKA keyboard servo | {app.command_frame} | "
+        f"F={force:.2f} N | T={torque:.2f} Nm | {app._status_text()}"
+    )
+
+
 def _run_window(app: JakaKeyboardServo) -> None:
     if not glfw.init():
         raise RuntimeError("cannot initialize GLFW display; use --headless")
 
     window = None
     clear_window = None
+    plotter = None
+    plot_error_reported = False
     try:
         # Use a normal OpenGL-capable window and clear it every frame.  A
         # GLFW_NO_API window can be invisible on some Wayland compositors
@@ -417,10 +534,11 @@ def _run_window(app: JakaKeyboardServo) -> None:
         # focus stealing, so the operator may still need to click it.
         glfw.show_window(window)
         glfw.focus_window(window)
-        glfw.set_window_title(
-            window,
-            f"JAKA keyboard servo | {app.command_frame} | {app._status_text()}",
-        )
+        glfw.set_window_title(window, _window_title(app))
+
+        if app.args.plot_wrench:
+            from replace_disk_robot.visual import ProcessTypePlotter
+            plotter = ProcessTypePlotter(window_s=10.0, refresh_hz=10.0)
 
         print(
             "[keyboard] a small window named 'JAKA keyboard servo' has opened.\n"
@@ -436,10 +554,17 @@ def _run_window(app: JakaKeyboardServo) -> None:
             dt_s = 1.0 / app.args.rate_hz if last_now is None else now - last_now
             last_now = now
             app.tick(elapsed_s, dt_s)
-            glfw.set_window_title(
-                window,
-                f"JAKA keyboard servo | {app.command_frame} | {app._status_text()}",
-            )
+            if plotter is not None and app.last_wrench is not None:
+                plotter.update(app.last_wrench, elapsed_s)
+                if plotter.error and not plot_error_reported:
+                    print(
+                        f"[plot] plot disabled; keyboard control remains active:\n"
+                        f"{plotter.error}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    plot_error_reported = True
+            glfw.set_window_title(window, _window_title(app))
             if clear_window is not None:
                 glClear, glClearColor, color_bit = clear_window
                 glClearColor(0.72, 0.80, 0.90, 1.0)
@@ -448,6 +573,8 @@ def _run_window(app: JakaKeyboardServo) -> None:
             if app.args.seconds > 0 and elapsed_s >= app.args.seconds:
                 break
     finally:
+        if plotter is not None:
+            plotter.close()
         if window is not None:
             glfw.destroy_window(window)
         glfw.terminate()
