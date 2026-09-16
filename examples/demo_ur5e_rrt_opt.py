@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from replace_disk_robot.core import CollisionCheckerPort, JointState, TrajectoryPoint
 from replace_disk_robot.kinematics.ur5e import UR5eKinematics
 from replace_disk_robot.planning.search import RRTConnectPlanner
-from replace_disk_robot.planning.trj_opt import TrajectoryOptimizer
+from replace_disk_robot.planning.optimize import TrajectoryOptimizer
 
 
 @dataclass

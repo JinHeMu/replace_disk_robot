@@ -25,7 +25,7 @@ from replace_disk_robot.planning.planar2_collision import (
     Planar2LinkCollisionChecker,
 )
 from replace_disk_robot.planning.search import RRTConnectPlanner
-from replace_disk_robot.planning.trj_opt import TrajectoryOptimizer
+from replace_disk_robot.planning.optimize import TrajectoryOptimizer
 
 
 def _tip_path(kinematics, path):

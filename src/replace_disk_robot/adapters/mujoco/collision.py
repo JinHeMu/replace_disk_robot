@@ -61,12 +61,22 @@ class MujocoCollisionChecker(CollisionCheckerPort):
     robot_bodies: tuple[str, ...] = DEFAULT_ROBOT_BODIES
     safety_margin_m: float = 0.0
     dist_max_m: float = 10.0
+    arm_joints: tuple[str, ...] = ARM_JOINTS
+    use_separate_planning_data: bool = True
 
     def __post_init__(self) -> None:
         if self.safety_margin_m < 0.0:
             raise ValueError("safety_margin_m must be non-negative")
         if self.dist_max_m <= 0.0:
             raise ValueError("dist_max_m must be positive")
+        self.arm_joints = tuple(self.arm_joints)
+        if not self.arm_joints or len(set(self.arm_joints)) != len(self.arm_joints):
+            raise ValueError("arm_joints must contain unique joint names")
+
+        if self.use_separate_planning_data and hasattr(mujoco, "mj_copyData"):
+            self._planning_data = mujoco.MjData(self.model)
+        else:
+            self._planning_data = self.data
 
         robot_body_id_set: set[int] = set()
         for name in self.robot_bodies:
@@ -97,13 +107,13 @@ class MujocoCollisionChecker(CollisionCheckerPort):
         self._joint_ids = np.array(
             [
                 mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-                for name in ARM_JOINTS
+                for name in self.arm_joints
             ],
             dtype=int,
         )
         if np.any(self._joint_ids < 0):
             missing = [
-                name for name, idx in zip(ARM_JOINTS, self._joint_ids) if idx < 0
+                name for name, idx in zip(self.arm_joints, self._joint_ids) if idx < 0
             ]
             raise KeyError(f"MuJoCo model is missing arm joints: {missing}")
         self._qpos_ids = self.model.jnt_qposadr[self._joint_ids]
@@ -111,20 +121,33 @@ class MujocoCollisionChecker(CollisionCheckerPort):
         self._robot_geom_set = set(self._robot_geom_ids)
         self._environment_geom_set = set(self._environment_geom_ids)
 
-    def _apply_joints(self, joints: JointState) -> None:
-        if set(joints.names) != set(ARM_JOINTS) or len(joints.names) != len(ARM_JOINTS):
-            raise ValueError("joint state must contain each UR5e arm joint exactly once")
+    def _query_data(self) -> mujoco.MjData:
+        if self._planning_data is self.data:
+            return self.data
+        mujoco.mj_copyData(self._planning_data, self.model, self.data)
+        return self._planning_data
+
+    def _apply_joints(self, joints: JointState) -> mujoco.MjData:
+        if (
+            set(joints.names) != set(self.arm_joints)
+            or len(joints.names) != len(self.arm_joints)
+        ):
+            raise ValueError(
+                "joint state must contain each configured arm joint exactly once"
+            )
+        data = self._query_data()
         index = {name: i for i, name in enumerate(joints.names)}
-        self.data.qpos[self._qpos_ids] = np.array(
-            [joints.position_rad[index[name]] for name in ARM_JOINTS]
+        data.qpos[self._qpos_ids] = np.array(
+            [joints.position_rad[index[name]] for name in self.arm_joints]
         )
-        mujoco.mj_forward(self.model, self.data)
+        mujoco.mj_forward(self.model, data)
+        return data
 
     def is_collision_free(self, joints: JointState) -> bool:
-        """Return True if no robot-environment contact is active."""
-        self._apply_joints(joints)
-        for i in range(self.data.ncon):
-            contact = self.data.contact[i]
+        """Return True if no contact or safety-margin violation is active."""
+        data = self._apply_joints(joints)
+        for i in range(data.ncon):
+            contact = data.contact[i]
             geom1 = int(contact.geom1)
             geom2 = int(contact.geom2)
             robot_count = int(geom1 in self._robot_geom_set) + int(
@@ -135,12 +158,16 @@ class MujocoCollisionChecker(CollisionCheckerPort):
             )
             if robot_count == 1 and env_count == 1:
                 return False
-        return True
+        if self.safety_margin_m <= 0.0:
+            return True
+        return self._minimum_distance_loaded(data) > self.safety_margin_m
 
     def minimum_distance(self, joints: JointState) -> float:
         """Return the smallest signed robot-environment geom distance."""
-        self._apply_joints(joints)
+        data = self._apply_joints(joints)
+        return self._minimum_distance_loaded(data)
 
+    def _minimum_distance_loaded(self, data: mujoco.MjData) -> float:
         if not self._robot_geom_ids or not self._environment_geom_ids:
             return float("inf")
 
@@ -150,7 +177,7 @@ class MujocoCollisionChecker(CollisionCheckerPort):
                 distance = float(
                     mujoco.mj_geomDistance(
                         self.model,
-                        self.data,
+                        data,
                         robot_geom,
                         env_geom,
                         self.dist_max_m,

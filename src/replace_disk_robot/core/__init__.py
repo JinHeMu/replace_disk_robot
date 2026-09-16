@@ -7,8 +7,10 @@ from .ports import (
     ForceControllerPort,
     ForceTorquePort,
     GripperPort,
+    KinematicsPort,
     MechanismPort,
     TrajectoryOptimizerPort,
+    TrajectoryPlannerPort,
 )
 from .types import (
     AdmittanceState,
@@ -29,9 +31,11 @@ __all__ = [
     "ForceTorquePort",
     "GripperPort",
     "JointState",
+    "KinematicsPort",
     "MechanismPort",
     "Pose",
     "TrajectoryOptimizerPort",
+    "TrajectoryPlannerPort",
     "TrajectoryPoint",
     "Wrench",
 ]

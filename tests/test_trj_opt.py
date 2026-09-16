@@ -3,7 +3,7 @@ import pytest
 
 from replace_disk_robot.core import TrajectoryPoint
 from replace_disk_robot.kinematics.planar2 import Planar2LinkKinematics
-from replace_disk_robot.planning.trj_opt import TrajectoryOptimizer
+from replace_disk_robot.planning.optimize import TrajectoryOptimizer
 
 
 def _zigzag_trajectory():

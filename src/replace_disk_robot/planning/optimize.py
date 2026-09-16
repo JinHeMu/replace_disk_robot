@@ -16,8 +16,12 @@ from typing import Callable, Sequence
 import numpy as np
 from numpy.typing import NDArray
 
-from ..core import CollisionCheckerPort, JointState, TrajectoryPoint
-from ..kinematics.planar2 import Planar2LinkKinematics
+from ..core import (
+    CollisionCheckerPort,
+    JointState,
+    KinematicsPort,
+    TrajectoryPoint,
+)
 
 
 def _import_scipy_minimize() -> Callable | None:
@@ -27,6 +31,10 @@ def _import_scipy_minimize() -> Callable | None:
         return minimize
     except Exception:
         return None
+
+
+class TrajectoryOptimizationError(RuntimeError):
+    """Raised when a trajectory cannot be optimized to a valid result."""
 
 
 class TrajectoryOptimizer:
@@ -53,6 +61,12 @@ class TrajectoryOptimizer:
     optimize_endpoint:
         If True, the final trajectory point is free to move (task can pull it).
         The first point is always fixed.
+    joint_lower_limits_rad:
+        Optional lower joint bounds ordered like the trajectory columns.  When
+        provided, ``joint_upper_limits_rad`` must also be provided and the
+        optimizer keeps every free trajectory point inside these bounds.
+    joint_upper_limits_rad:
+        Optional upper joint bounds ordered like the trajectory columns.
     method:
         ``"auto"`` tries SciPy L-BFGS-B when available, otherwise internal
         gradient descent.  ``"gradient"`` always uses the internal method.
@@ -61,7 +75,7 @@ class TrajectoryOptimizer:
 
     def __init__(
         self,
-        kinematics: Planar2LinkKinematics | None = None,
+        kinematics: KinematicsPort | None = None,
         *,
         collision_checker: CollisionCheckerPort | None = None,
         target_tip_trajectory: NDArray[np.float64] | None = None,
@@ -70,6 +84,8 @@ class TrajectoryOptimizer:
         acceleration_weight: float = 0.01,
         dt_s: float = 0.1,
         optimize_endpoint: bool = False,
+        joint_lower_limits_rad: NDArray[np.float64] | None = None,
+        joint_upper_limits_rad: NDArray[np.float64] | None = None,
         method: str = "auto",
         max_iterations_gradient: int = 200,
         gradient_step_start: float = 0.1,
@@ -82,6 +98,10 @@ class TrajectoryOptimizer:
             raise ValueError("max_iterations_gradient must be positive")
         if method not in {"auto", "gradient", "lbfgs", "newton"}:
             raise ValueError(f"unknown optimization method: {method}")
+        lower, upper = self._coerce_joint_limits(
+            joint_lower_limits_rad,
+            joint_upper_limits_rad,
+        )
 
         self.kinematics = kinematics
         self.collision_checker = collision_checker
@@ -90,6 +110,8 @@ class TrajectoryOptimizer:
         self.acceleration_weight = float(acceleration_weight)
         self.dt_s = float(dt_s)
         self.optimize_endpoint = bool(optimize_endpoint)
+        self.joint_lower_limits_rad = lower
+        self.joint_upper_limits_rad = upper
         self.method = method
         self.max_iterations_gradient = int(max_iterations_gradient)
         self.gradient_step_start = float(gradient_step_start)
@@ -107,34 +129,70 @@ class TrajectoryOptimizer:
         if len(initial) < 2:
             raise ValueError("need at least two trajectory points to optimize")
         q = np.array([p.position_rad for p in initial], dtype=float)
-        if q.ndim != 2:
-            raise ValueError("trajectory points must all be 2D arrays")
+        if q.ndim != 2 or q.shape[1] == 0:
+            raise ValueError("trajectory points must all be non-empty 2D arrays")
+        if not np.all(np.isfinite(q)):
+            raise ValueError("initial trajectory contains non-finite joint values")
 
-        names = self._names(initial, q.shape[1])
         n_joints = q.shape[1]
+        self._validate_limits_for_n_joints(n_joints)
+        if self.joint_lower_limits_rad is not None and (
+            np.any(q < self.joint_lower_limits_rad)
+            or np.any(q > self.joint_upper_limits_rad)
+        ):
+            raise ValueError("initial trajectory violates the configured joint limits")
+
         free_start = 1
         free_end = q.shape[0] if self.optimize_endpoint else q.shape[0] - 1
-        x = q[free_start:free_end].reshape(-1).copy()
+        free_q = q[free_start:free_end]
+        x = free_q.reshape(-1).copy()
+        if x.size == 0:
+            return [
+                TrajectoryPoint(
+                    time_from_start_s=float(p.time_from_start_s),
+                    position_rad=np.asarray(q[i], dtype=float).copy(),
+                )
+                for i, p in enumerate(initial)
+            ]
 
         method = self.method
         if method == "auto":
             method = "lbfgs" if self._scipy_minimize is not None else "gradient"
 
-        if method in {"lbfgs", "newton"}:
-            if self._scipy_minimize is None:
-                raise RuntimeError(
-                    f"method={method} requires SciPy; unavailable in this environment"
-                )
-            x = self._optimize_scipy(x, q, free_start, free_end, method)
-        else:
-            x = self._optimize_gradient(x, q, free_start, free_end)
+        try:
+            if method in {"lbfgs", "newton"}:
+                if self._scipy_minimize is None:
+                    raise TrajectoryOptimizationError(
+                        f"method={method} requires SciPy; unavailable in this environment"
+                    )
+                x = self._optimize_scipy(x, q, free_start, free_end, method)
+            else:
+                x = self._optimize_gradient(x, q, free_start, free_end)
+        except TrajectoryOptimizationError:
+            raise
+        except Exception as exc:
+            raise TrajectoryOptimizationError(
+                f"trajectory optimization failed: {exc}"
+            ) from exc
+
+        if x.size != (free_end - free_start) * n_joints:
+            raise TrajectoryOptimizationError(
+                "trajectory optimization returned an inconsistent joint vector"
+            )
+        if not np.all(np.isfinite(x)):
+            raise TrajectoryOptimizationError(
+                "trajectory optimization returned non-finite joint values"
+            )
 
         q_opt = q.copy()
         q_opt[free_start:free_end] = x.reshape(-1, n_joints)
+        if self.joint_lower_limits_rad is not None:
+            q_opt[free_start:free_end] = np.clip(
+                q_opt[free_start:free_end],
+                self.joint_lower_limits_rad,
+                self.joint_upper_limits_rad,
+            )
 
-        # Enforce optional bounds by clipping if user provided a checker/bounds
-        # (currently no explicit bounds API; clip to original convex hull is not
-        # desired, so no clipping here).
         return [
             TrajectoryPoint(
                 time_from_start_s=float(p.time_from_start_s),
@@ -146,23 +204,112 @@ class TrajectoryOptimizer:
     def evaluate(self, trajectory: Sequence[TrajectoryPoint]) -> dict[str, float]:
         """Return individual cost terms for a trajectory (useful for comparison)."""
         q = np.array([p.position_rad for p in trajectory], dtype=float)
-        target = self._target_path(q)
+        if q.ndim != 2 or not np.all(np.isfinite(q)):
+            raise ValueError("trajectory must be a finite 2D joint array")
+
+        if self.kinematics is not None and self.task_weight > 0.0:
+            target = self._target_path(q)
+            task_cost = self._task_cost(q, target)
+        else:
+            task_cost = 0.0
+
+        velocity_cost = self._velocity_cost(q)
+        acceleration_cost = self._acceleration_cost(q)
+        collision_cost = self._collision_cost(q)
         return {
-            "task": self._task_cost(q, target),
-            "velocity": self._velocity_cost(q),
-            "acceleration": self._acceleration_cost(q),
-            "collision": self._collision_cost(q),
+            "task": task_cost,
+            "velocity": velocity_cost,
+            "acceleration": acceleration_cost,
+            "collision": collision_cost,
             "total": (
-                self._task_cost(q, target)
-                + self._velocity_cost(q)
-                + self._acceleration_cost(q)
-                + self._collision_cost(q)
+                task_cost
+                + velocity_cost
+                + acceleration_cost
+                + collision_cost
             ),
         }
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+    @staticmethod
+    def _coerce_joint_limits(
+        lower: NDArray[np.float64] | None,
+        upper: NDArray[np.float64] | None,
+    ) -> tuple[NDArray[np.float64] | None, NDArray[np.float64] | None]:
+        if (lower is None) != (upper is None):
+            raise ValueError(
+                "joint_lower_limits_rad and joint_upper_limits_rad must be "
+                "provided together"
+            )
+        if lower is None or upper is None:
+            return None, None
+
+        lower_array = np.asarray(lower, dtype=float)
+        upper_array = np.asarray(upper, dtype=float)
+        if lower_array.ndim != 1 or upper_array.ndim != 1:
+            raise ValueError("joint limits must be one-dimensional arrays")
+        if lower_array.shape != upper_array.shape:
+            raise ValueError("joint lower/upper limits must have the same shape")
+        if not np.all(np.isfinite(lower_array)) or not np.all(
+            np.isfinite(upper_array)
+        ):
+            raise ValueError("joint limits must contain only finite values")
+        if np.any(lower_array > upper_array):
+            raise ValueError("joint lower limits must not exceed upper limits")
+        return lower_array.copy(), upper_array.copy()
+
+    def _validate_limits_for_n_joints(self, n_joints: int) -> None:
+        if self.joint_lower_limits_rad is None:
+            return
+        if self.joint_lower_limits_rad.shape != (n_joints,):
+            raise ValueError(
+                "joint limits must have shape "
+                f"({n_joints},), got {self.joint_lower_limits_rad.shape}"
+            )
+
+    def _flat_bounds(
+        self,
+        n_joints: int,
+        free_start: int,
+        free_end: int,
+        expected_size: int,
+    ) -> list[tuple[float, float]] | None:
+        if self.joint_lower_limits_rad is None:
+            return None
+        lower = np.tile(
+            self.joint_lower_limits_rad,
+            free_end - free_start,
+        )
+        upper = np.tile(
+            self.joint_upper_limits_rad,
+            free_end - free_start,
+        )
+        if lower.size != expected_size:
+            raise TrajectoryOptimizationError(
+                "internal joint-bound size does not match optimization vector"
+            )
+        return [(float(lo), float(hi)) for lo, hi in zip(lower, upper)]
+
+    def _project_to_bounds(
+        self,
+        x: NDArray[np.float64],
+        n_joints: int,
+        free_start: int,
+        free_end: int,
+    ) -> NDArray[np.float64]:
+        if self.joint_lower_limits_rad is None:
+            return x
+        lower = np.tile(
+            self.joint_lower_limits_rad,
+            free_end - free_start,
+        )
+        upper = np.tile(
+            self.joint_upper_limits_rad,
+            free_end - free_start,
+        )
+        return np.clip(x, lower, upper)
+
     def _names(
         self,
         initial: Sequence[TrajectoryPoint],
@@ -190,6 +337,10 @@ class TrajectoryOptimizer:
             )
 
         # Straight line in Cartesian workspace between first and last tip.
+        if self.kinematics is None:
+            raise TrajectoryOptimizationError(
+                "kinematics is required when a Cartesian task cost is active"
+            )
         names = self._names(q, q.shape[1])
         first = self.kinematics.forward(JointState(names, q[0]))
         last = self.kinematics.forward(JointState(names, q[-1]))
@@ -256,13 +407,15 @@ class TrajectoryOptimizer:
         free_end: int,
     ) -> float:
         q_work = self._decode(x, q, free_start, free_end)
-        target = self._target_path(q_work)
-        return (
-            self._task_cost(q_work, target)
-            + self._velocity_cost(q_work)
+        cost = (
+            self._velocity_cost(q_work)
             + self._acceleration_cost(q_work)
             + self._collision_cost(q_work)
         )
+        if self.kinematics is not None and self.task_weight > 0.0:
+            target = self._target_path(q_work)
+            cost += self._task_cost(q_work, target)
+        return float(cost)
 
     def _numerical_gradient(
         self,
@@ -294,20 +447,28 @@ class TrajectoryOptimizer:
     ) -> NDArray[np.float64]:
         scipy_method = "L-BFGS-B" if method == "lbfgs" else "Newton-CG"
         maxiter = max(500, self.max_iterations_gradient * 5)
+        bounds = (
+            self._flat_bounds(q.shape[1], free_start, free_end, x0.size)
+            if scipy_method == "L-BFGS-B"
+            else None
+        )
         result = self._scipy_minimize(
             fun=lambda x: self._cost(x, q, free_start, free_end),
             x0=x0,
             method=scipy_method,
             jac=lambda x: self._numerical_gradient(x, q, free_start, free_end),
+            bounds=bounds,
             options={"maxiter": maxiter},
         )
         x_opt = np.asarray(result.x, dtype=float)
-        # If SciPy stops early (e.g. maxiter), still return the best iterate it
-        # found.  This keeps the demo usable even when the optimizer is not fully
-        # converged.
+        if x_opt.size != x0.size:
+            raise TrajectoryOptimizationError(
+                "scipy optimizer returned a vector with an unexpected size"
+            )
+        x_opt = self._project_to_bounds(x_opt, q.shape[1], free_start, free_end)
         if np.all(np.isfinite(x_opt)):
             return x_opt
-        raise RuntimeError(
+        raise TrajectoryOptimizationError(
             f"trajectory optimization failed: {result.message}"
         )
 
@@ -335,6 +496,12 @@ class TrajectoryOptimizer:
             accepted = False
             for _ in range(20):
                 x_next = x_cur + step_local * direction
+                x_next = self._project_to_bounds(
+                    x_next,
+                    q.shape[1],
+                    free_start,
+                    free_end,
+                )
                 cost_next = self._cost(x_next, q, free_start, free_end)
                 if cost_next < cost_cur:
                     x_cur = x_next

@@ -63,3 +63,40 @@ def test_rrt_connect_rejects_invalid_endpoints():
 
     with pytest.raises(RuntimeError, match="start configuration is in collision"):
         planner.plan(start, goal)
+
+
+class _AlwaysFreeChecker:
+    def is_collision_free(self, joints: JointState) -> bool:
+        return True
+
+    def minimum_distance(self, joints: JointState) -> float:
+        return 1.0
+
+
+def test_rrt_path_pruning_collapses_free_detour_to_straight_line():
+    names = ("q",)
+    start = JointState(names, [0.0])
+    goal = JointState(names, [1.0])
+
+    raw_planner = RRTConnectPlanner(
+        _AlwaysFreeChecker(),
+        step_size_rad=0.2,
+        max_iterations=100,
+        random_seed=0,
+        path_pruning=False,
+    )
+    pruned_planner = RRTConnectPlanner(
+        _AlwaysFreeChecker(),
+        step_size_rad=0.2,
+        max_iterations=100,
+        random_seed=0,
+        path_pruning=True,
+    )
+
+    raw_path = raw_planner.plan(start, goal)
+    pruned_path = pruned_planner.plan(start, goal)
+
+    assert len(raw_path) > 2
+    assert len(pruned_path) == 2
+    np.testing.assert_allclose(pruned_path[0].position_rad, start.position_rad)
+    np.testing.assert_allclose(pruned_path[-1].position_rad, goal.position_rad)
