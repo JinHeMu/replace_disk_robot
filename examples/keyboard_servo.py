@@ -53,9 +53,8 @@ class ServoDemo:
     def __init__(self, linear_speed=.01, angular_speed=np.deg2rad(5),
                  model_name='ur5e', keyframe=None, command_frame='base',
                  admittance=False, admittance_axes='translation',
-                 admittance_max_offset=.02, force_filter_alpha=.2,
-                 force_deadband_n=.5, force_torque_deadband_nm=.05,
-                 max_nominal_lead=.05, max_nominal_rotation_lead_deg=10.0):
+                 force_filter_alpha=.2,
+                 force_deadband_n=.5, force_torque_deadband_nm=.05):
         if model_name not in MODEL_CHOICES:
             raise ValueError(f'unknown model {model_name!r}; expected one of {MODEL_CHOICES}')
         if command_frame not in ('auto', 'base', 'tool'):
@@ -66,12 +65,6 @@ class ServoDemo:
             raise ValueError(
                 f"admittance_axes must be 'translation' or 'all', got {admittance_axes!r}"
             )
-        if not np.isfinite(admittance_max_offset) or admittance_max_offset <= 0:
-            raise ValueError('admittance_max_offset must be finite and positive')
-        if not np.isfinite(max_nominal_lead) or max_nominal_lead <= 0:
-            raise ValueError('max_nominal_lead must be finite and positive')
-        if not np.isfinite(max_nominal_rotation_lead_deg) or max_nominal_rotation_lead_deg <= 0:
-            raise ValueError('max_nominal_rotation_lead_deg must be finite and positive')
         self.model_name = model_name
         self.keyframe_name = keyframe or ('home' if model_name == 'ur5e' else 'low')
         self.model, self.data = load_model(model_name)
@@ -159,10 +152,6 @@ class ServoDemo:
                 mass=[1.0, 1.0, 1.0, .01, .01, .01],
                 damping=[50.0, 50.0, 50.0, 1.0, 1.0, 1.0],
                 stiffness=[200.0, 200.0, 200.0, 20.0, 20.0, 20.0],
-                max_offset=np.r_[
-                    np.full(3, admittance_max_offset),
-                    np.deg2rad(10.0) * np.ones(3),
-                ],
                 max_velocity=[.1, .1, .1, np.deg2rad(30.0), np.deg2rad(30.0), np.deg2rad(30.0)],
                 max_dt_s=max(.01, self.dt),
             ))
@@ -170,8 +159,6 @@ class ServoDemo:
                 self.admittance,
                 self.kinematics.forward(self.robot.read_joint_state()),
                 MotionReferenceConfig(
-                    max_lead_translation_m=max_nominal_lead,
-                    max_lead_rotation_rad=np.deg2rad(max_nominal_rotation_lead_deg),
                     enabled_axes=enabled_axes,
                     max_dt_s=max(.01, self.dt),
                 ),
@@ -596,7 +583,6 @@ def run_window(app, plot_wrench=False):
         print(f'Obstacle contact is allowed; measured force > {FORCE_STOP_N:g} N stops the servo.')
         if app.admittance_enabled:
             print(f'Admittance ON: {app.admittance_axes_mode} axes; '
-                  f'offset limit {app.admittance.config.max_offset[:3]} m; '
                   f'wrench filtered in {app.base_frame}.')
         if app.model_name == 'jaka' and app.command_frame_mode == 'base':
             print('JAKA base mode: R/F move along current tool0 +Z (blue axis); '
@@ -669,18 +655,12 @@ def main():
     parser.add_argument('--admittance-axes', choices=('translation', 'all'),
                         default='translation',
                         help='wrench axes used by admittance (default: translation only)')
-    parser.add_argument('--admittance-max-offset', type=float, default=.02,
-                        help='translation admittance offset limit in m (default: 0.02)')
     parser.add_argument('--force-filter-alpha', type=float, default=.2,
                         help='F/T low-pass alpha in (0, 1] (default: 0.2)')
     parser.add_argument('--force-deadband-n', type=float, default=.5,
                         help='per-axis force deadband in N (default: 0.5)')
     parser.add_argument('--force-torque-deadband-nm', type=float, default=.05,
                         help='per-axis torque deadband in N*m (default: 0.05)')
-    parser.add_argument('--max-nominal-lead', type=float, default=.05,
-                        help='nominal reference lead over measured TCP in m (default: 0.05)')
-    parser.add_argument('--max-nominal-rotation-lead-deg', type=float, default=10.,
-                        help='nominal reference rotation lead over measured TCP in deg')
     parser.add_argument('--headless', action='store_true',
                         help='run scripted key checks (with --admittance: compliance checks)')
     parser.add_argument('--plot-wrench', action='store_true',
@@ -707,12 +687,9 @@ def main():
                 command_frame=args.command_frame,
                 admittance=args.admittance,
                 admittance_axes=args.admittance_axes,
-                admittance_max_offset=args.admittance_max_offset,
                 force_filter_alpha=args.force_filter_alpha,
                 force_deadband_n=args.force_deadband_n,
                 force_torque_deadband_nm=args.force_torque_deadband_nm,
-                max_nominal_lead=args.max_nominal_lead,
-                max_nominal_rotation_lead_deg=args.max_nominal_rotation_lead_deg,
             ),
             plot_wrench=args.plot_wrench,
         )

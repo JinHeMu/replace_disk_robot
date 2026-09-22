@@ -374,8 +374,8 @@ simulation/mujoco/     # 场景 XML、模型、截图、验证报告
 - `MujocoRobotAdapter` / `MujocoWristFTAdapter`：实现 MuJoCo 侧 `ArmPort` / `ForceTorquePort`。
 - `JakaRobotAdapter` / `JakaWristFTAdapter`：实现 Jaka 侧 `ArmPort` / `ForceTorquePort`，使用 EDG 和本地 `core` 类型。
 - `WrenchProcessor`：F/T 坐标变换、参考点平移、符号、滤波和死区。
-- `KeyboardAdmittanceController`：键盘名义位姿积分、超前限幅和导纳状态。
-- `AdmittanceController`：六轴导纳模型、限幅和状态复位。
+- `KeyboardAdmittanceController`：键盘名义位姿积分和导纳状态。
+- `AdmittanceController`：六轴导纳模型和状态复位。
 - `CartesianServo`：笛卡尔速度到位姿/关节目标，含限速、限位、跟踪和可选碰撞检查。
 - `ForceLimitGuard`：最终快速限力门。
 - `rl/`：只输出有界残差；不直接写 MuJoCo `ctrl`，策略只依赖 NumPy 接口。

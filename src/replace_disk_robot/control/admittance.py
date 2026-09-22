@@ -42,25 +42,24 @@ def _quaternion_from_rotation_vector(rotation_vector: NDArray[np.float64]) -> ND
 class AdmittanceConfig:
     """Diagonal six-axis admittance parameters in one named frame.
 
-    ``mass``, ``damping``, ``stiffness``, ``max_offset`` and
-    ``max_velocity`` may be scalars or six-vectors. Components 0..2 are
-    translational; components 3..5 are rotational. SI units are expected:
+    ``mass``, ``damping``, ``stiffness`` and ``max_velocity`` may be scalars or
+    six-vectors. Components 0..2 are translational; components 3..5 are
+    rotational. SI units are expected:
 
     - mass: kg for translation, kg*m^2 for rotation
     - damping: N*s/m for translation, N*m*s/rad for rotation
     - stiffness: N/m for translation, N*m/rad for rotation
-    - offset: m for translation, rad for rotation
     - velocity: m/s for translation, rad/s for rotation
 
     The offset is expressed in ``frame_id`` and the returned corrected pose
-    uses the same frame.
+    uses the same frame.  There is intentionally no maximum-offset clamp: the
+    caller owns any workspace or safety limit.
     """
 
     frame_id: str
     mass: ArrayLike
     damping: ArrayLike
     stiffness: ArrayLike
-    max_offset: ArrayLike
     max_velocity: ArrayLike
     max_dt_s: float = 0.05
 
@@ -70,7 +69,6 @@ class AdmittanceConfig:
         mass = _six(self.mass, "mass")
         damping = _six(self.damping, "damping")
         stiffness = _six(self.stiffness, "stiffness")
-        max_offset = _six(self.max_offset, "max_offset")
         max_velocity = _six(self.max_velocity, "max_velocity")
         if np.any(mass <= 0):
             raise ValueError("mass must be positive")
@@ -78,8 +76,6 @@ class AdmittanceConfig:
             raise ValueError("damping must be positive")
         if np.any(stiffness < 0):
             raise ValueError("stiffness must be non-negative")
-        if np.any(max_offset <= 0):
-            raise ValueError("max_offset must be positive")
         if np.any(max_velocity <= 0):
             raise ValueError("max_velocity must be positive")
         if not np.isfinite(self.max_dt_s) or self.max_dt_s <= 0:
@@ -87,7 +83,6 @@ class AdmittanceConfig:
         object.__setattr__(self, "mass", mass)
         object.__setattr__(self, "damping", damping)
         object.__setattr__(self, "stiffness", stiffness)
-        object.__setattr__(self, "max_offset", max_offset)
         object.__setattr__(self, "max_velocity", max_velocity)
 
 
@@ -178,24 +173,10 @@ class AdmittanceController:
             self.config.max_velocity,
         )
         offset = self._offset + velocity * dt_s
-        clipped_offset = np.clip(
-            offset,
-            -self.config.max_offset,
-            self.config.max_offset,
-        )
-
-        # Anti-windup: do not keep integrating outward once a component hits
-        # its offset limit. Inward velocity is preserved so the tool can return.
-        outward = (
-            ((offset > self.config.max_offset) & (velocity > 0))
-            | ((offset < -self.config.max_offset) & (velocity < 0))
-        )
-        velocity = np.where(outward, 0.0, velocity)
-
-        self._offset = clipped_offset
+        self._offset = offset
         self._velocity = velocity
 
-        return self._pose_from_offset(nominal, clipped_offset)
+        return self._pose_from_offset(nominal, offset)
 
     @staticmethod
     def _pose_from_offset(nominal: Pose, offset: NDArray[np.float64]) -> Pose:

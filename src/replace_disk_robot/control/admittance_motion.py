@@ -6,13 +6,12 @@ nominal Cartesian pose:
 
 * held keys integrate a nominal pose;
 * releasing the keys stops the nominal pose but keeps compliance active;
-* the admittance controller adds a bounded offset to that pose;
-* a lead limiter freezes the nominal reference when the real tool cannot follow,
-  so an obstacle cannot wind the reference up without bound.
+* the admittance controller adds an unbounded offset to that pose.
 
 The class is backend-neutral.  Callers provide an already-transformed external
-wrench and the measured TCP pose in the same named frame; IK, collision checks
-and joint limits stay in :class:`~replace_disk_robot.control.servo.CartesianServo`.
+wrench and the measured TCP pose in the same named frame; IK, collision checks,
+workspace limits and joint limits stay in
+:class:`~replace_disk_robot.control.servo.CartesianServo`.
 """
 
 from __future__ import annotations
@@ -25,63 +24,32 @@ from numpy.typing import ArrayLike, NDArray
 from ..core.ports import AdmittanceControllerPort
 from ..core.rotation import (
     multiply,
-    quaternion_from_rotation_matrix,
     quaternion_from_rotation_vector,
     rotation_matrix,
-    rotation_matrix_from_rotation_vector,
-    rotation_vector_from_matrix,
 )
 from ..core.types import AdmittanceState, CartesianJog, Pose, Wrench
 
 
-def _axis_vector(value: ArrayLike, name: str, *, positive: bool) -> NDArray[np.float64]:
-    """Broadcast a scalar to a 3-vector and validate finite bounds."""
-    array = np.asarray(value, dtype=float)
-    if array.ndim == 0:
-        array = np.full(3, float(array))
-    if array.shape != (3,) or not np.all(np.isfinite(array)):
-        raise ValueError(f"{name} must be a finite scalar or 3-vector")
-    if positive and np.any(array <= 0.0):
-        raise ValueError(f"{name} must be positive")
-    if not positive and np.any(array < 0.0):
-        raise ValueError(f"{name} must be non-negative")
-    return array.copy()
-
-
 @dataclass(frozen=True)
 class MotionReferenceConfig:
-    """Bounds and axis switches for compliant keyboard motion.
+    """Axis switches and timing for compliant keyboard motion.
 
-    ``max_lead_translation_m`` and ``max_lead_rotation_rad`` bound the nominal
-    reference relative to the measured TCP.  They should normally be larger
-    than the admittance ``max_offset`` by the amount of tracking error that is
-    acceptable during contact.
-
-    ``enabled_axes`` is a six-element mask ``[x, y, z, rx, ry, rz]``.  Disabled
+    ``enabled_axes`` is a six-element mask ``[x, y, z, rx, ry, rz]``. Disabled
     wrench axes are zeroed before the admittance controller, which lets the
     first deployment run translation-only compatibility while keeping keyboard
-    rotation commands available.
+    rotation commands available.  Nominal pose and admittance offset are not
+    clamped by this class.
     """
 
-    max_lead_translation_m: ArrayLike = 0.03
-    max_lead_rotation_rad: ArrayLike = 0.2
     enabled_axes: ArrayLike = (True,) * 6
     max_dt_s: float = 0.05
 
     def __post_init__(self) -> None:
-        translation = _axis_vector(
-            self.max_lead_translation_m, "max_lead_translation_m", positive=True
-        )
-        rotation = _axis_vector(
-            self.max_lead_rotation_rad, "max_lead_rotation_rad", positive=True
-        )
         axes = np.asarray(self.enabled_axes, dtype=bool)
         if axes.shape != (6,):
             raise ValueError("enabled_axes must be a boolean 6-vector")
         if not np.isfinite(self.max_dt_s) or self.max_dt_s <= 0.0:
             raise ValueError("max_dt_s must be finite and positive")
-        object.__setattr__(self, "max_lead_translation_m", translation)
-        object.__setattr__(self, "max_lead_rotation_rad", rotation)
         object.__setattr__(self, "enabled_axes", axes.copy())
 
 
@@ -188,7 +156,6 @@ class KeyboardAdmittanceController:
             )
 
         candidate = self._advance(self._nominal, jog, dt_s)
-        candidate = self._limit_lead(candidate, measured_pose)
         self._nominal = candidate
         masked_wrench = self._mask_wrench(external_wrench)
         self._corrected = self.admittance.update(candidate, masked_wrench, dt_s)
@@ -212,33 +179,6 @@ class KeyboardAdmittanceController:
         quaternion = multiply(delta, nominal.quaternion_wxyz)
         quaternion = quaternion / np.linalg.norm(quaternion)
         return Pose(nominal.frame_id, position, quaternion)
-
-    def _limit_lead(self, candidate: Pose, measured: Pose) -> Pose:
-        position_lead = candidate.position_m - measured.position_m
-        limited_position = measured.position_m + np.clip(
-            position_lead,
-            -self.config.max_lead_translation_m,
-            self.config.max_lead_translation_m,
-        )
-        rotation_candidate = rotation_matrix(candidate.quaternion_wxyz)
-        rotation_measured = rotation_matrix(measured.quaternion_wxyz)
-        rotation_lead = rotation_vector_from_matrix(
-            rotation_candidate @ rotation_measured.T
-        )
-        limited_rotation_lead = np.clip(
-            rotation_lead,
-            -self.config.max_lead_rotation_rad,
-            self.config.max_lead_rotation_rad,
-        )
-        limited_rotation = (
-            rotation_matrix_from_rotation_vector(limited_rotation_lead)
-            @ rotation_measured
-        )
-        return Pose(
-            candidate.frame_id,
-            limited_position,
-            quaternion_from_rotation_matrix(limited_rotation),
-        )
 
     def _mask_wrench(self, wrench: Wrench) -> Wrench:
         if np.all(self._enabled_axes):

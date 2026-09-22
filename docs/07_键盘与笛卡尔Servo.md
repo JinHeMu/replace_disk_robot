@@ -61,7 +61,6 @@ MUJOCO_GL=egl python examples/jaka_admittance_experiment.py
 KeyControl -> CartesianJog（base 线速度 + 当前 TCP 角速度）
            -> KeyboardAdmittanceController
                 ├─ 按键积分：nominal_pose
-                ├─ 名义位姿超前实测 TCP 的距离/角度限幅
                 └─ AdmittanceController：nominal + 柔顺偏移 -> corrected_pose
            -> CartesianServo.submit_pose(corrected_pose)
            -> 限力门（每仿真子步读取原始 wrench）
@@ -79,14 +78,11 @@ KeyControl -> CartesianJog（base 线速度 + 当前 TCP 角速度）
 
 | 参数 | 默认 | 含义 |
 |---|---:|---|
-| `--admittance-max-offset` | 0.02 m | 平移柔顺偏移上限 |
 | `--force-filter-alpha` | 0.2 | 外力低通系数，1 表示不滤波 |
 | `--force-deadband-n` | 0.5 N | 逐轴力死区 |
 | `--force-torque-deadband-nm` | 0.05 N·m | 逐轴力矩死区 |
-| `--max-nominal-lead` | 0.05 m | 名义位姿相对实测 TCP 的最大平移超前 |
-| `--max-nominal-rotation-lead-deg` | 10° | 名义位姿相对实测 TCP 的最大转角超前 |
 
-松键后名义位姿保持，导纳仍响应外力；外力消失后，`K` 项使柔顺偏移回零。碰到障碍继续按键时，名义位姿超前量被限幅，不会沿受阻方向无限积累；反向按键仍可退出，切向运动不受影响。`focus_lost`、空格停止或导纳/伺服故障后，按 Enter 会以当前实测位姿重置 nominal、导纳状态和滤波状态，不会重放旧偏移或旧按键。
+松键后名义位姿保持，导纳仍响应外力；外力消失后，`K` 项使柔顺偏移回零。`AdmittanceController` 和 `KeyboardAdmittanceController` 不再默认裁剪柔顺偏移或名义位姿超前量；工作空间、碰撞和关节安全限制应由调用方或 `CartesianServo` 负责。`focus_lost`、空格停止或导纳/伺服故障后，按 Enter 会以当前实测位姿重置 nominal、导纳状态和滤波状态，不会重放旧偏移或旧按键。
 
 当前边界：MuJoCo 仿真外力方向已验证；导纳参数是针对该仿真场景的起步值，不是真机整定值。没有实现随姿态变化的工具重力补偿，且静态 `tare()` 只覆盖初始姿态；真机接入前必须重新标定传感器符号、坐标系、工具重力和安全阈值。
 

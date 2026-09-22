@@ -27,7 +27,6 @@ def admittance(**overrides) -> AdmittanceController:
         mass=1.0,
         damping=10.0,
         stiffness=100.0,
-        max_offset=0.05,
         max_velocity=0.5,
         max_dt_s=0.05,
     )
@@ -37,12 +36,9 @@ def admittance(**overrides) -> AdmittanceController:
 
 def test_keyboard_integration_in_base_and_intrinsic_tool_axes() -> None:
     motion = KeyboardAdmittanceController(
-        admittance(max_offset=1.0, stiffness=0.0),
+        admittance(stiffness=0.0),
         pose(),
-        MotionReferenceConfig(
-            max_lead_translation_m=1.0,
-            max_lead_rotation_rad=1.0,
-        ),
+        MotionReferenceConfig(),
     )
     measured = pose()
     linear_jog = CartesianJog("world", [0.1, 0.0, 0.0], [0.0, 0.0, 0.0])
@@ -68,21 +64,18 @@ def test_keyboard_integration_in_base_and_intrinsic_tool_axes() -> None:
     )
 
 
-def test_nominal_lead_is_bounded_when_measured_pose_cannot_follow() -> None:
+def test_nominal_pose_is_not_lead_limited() -> None:
     motion = KeyboardAdmittanceController(
-        admittance(max_offset=1.0, stiffness=0.0),
+        admittance(stiffness=0.0),
         pose(),
-        MotionReferenceConfig(
-            max_lead_translation_m=0.02,
-            max_lead_rotation_rad=0.1,
-        ),
+        MotionReferenceConfig(),
     )
     measured = pose()
     jog = CartesianJog("world", [1.0, 0.0, 0.0], [0.0] * 3)
     for _ in range(100):
         motion.update(jog, Wrench("world", [0.0] * 3, [0.0] * 3), measured, 0.01)
 
-    np.testing.assert_allclose(motion.nominal_pose.position_m, [0.02, 0.0, 0.0], atol=1e-12)
+    np.testing.assert_allclose(motion.nominal_pose.position_m, [1.0, 0.0, 0.0], atol=1e-12)
 
 
 def test_admittance_axes_mask_blocks_rotation_compliance() -> None:
@@ -178,10 +171,6 @@ def test_reset_and_validation_keep_frames_explicit() -> None:
 
 
 def test_config_validation() -> None:
-    with pytest.raises(ValueError):
-        MotionReferenceConfig(max_lead_translation_m=0.0)
-    with pytest.raises(ValueError):
-        MotionReferenceConfig(max_lead_rotation_rad=-1.0)
     with pytest.raises(ValueError):
         MotionReferenceConfig(enabled_axes=(True,) * 5)
     with pytest.raises(ValueError):

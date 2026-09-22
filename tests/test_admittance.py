@@ -27,7 +27,6 @@ def config(**overrides) -> AdmittanceConfig:
         mass=1.0,
         damping=10.0,
         stiffness=100.0,
-        max_offset=1.0,
         max_velocity=10.0,
         max_dt_s=0.01,
     )
@@ -39,7 +38,7 @@ class AdmittanceControllerTest(unittest.TestCase):
     def test_config_broadcasts_scalars_and_rejects_invalid_values(self) -> None:
         cfg = config()
         self.assertEqual(cfg.mass.shape, (6,))
-        self.assertEqual(cfg.max_offset.shape, (6,))
+        self.assertFalse(hasattr(cfg, "max_offset"))
         self.assertTrue(np.all(cfg.mass == 1.0))
 
         with self.assertRaises(ValueError):
@@ -48,8 +47,6 @@ class AdmittanceControllerTest(unittest.TestCase):
             config(damping=np.zeros(6))
         with self.assertRaises(ValueError):
             config(stiffness=-1.0)
-        with self.assertRaises(ValueError):
-            config(max_offset=0.0)
         with self.assertRaises(ValueError):
             config(max_velocity=[1.0] * 5)
         with self.assertRaises(ValueError):
@@ -78,7 +75,7 @@ class AdmittanceControllerTest(unittest.TestCase):
 
     def test_constant_force_reaches_stiffness_offset(self) -> None:
         controller = AdmittanceController(
-            config(mass=1.0, damping=10.0, stiffness=100.0, max_offset=1.0)
+            config(mass=1.0, damping=10.0, stiffness=100.0)
         )
         target = nominal()
 
@@ -95,7 +92,6 @@ class AdmittanceControllerTest(unittest.TestCase):
                 mass=1.0,
                 damping=1.0,
                 stiffness=0.0,
-                max_offset=np.ones(6),
                 max_velocity=np.ones(6),
             )
         )
@@ -142,12 +138,11 @@ class AdmittanceControllerTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 controller.update(target, wrench(), dt_s=dt_s)
 
-    def test_offset_limit_stops_outward_motion(self) -> None:
+    def test_offset_is_not_clamped_by_config(self) -> None:
         cfg = config(
             mass=1.0,
             damping=1.0,
             stiffness=0.0,
-            max_offset=np.array([0.01, 0.01, 0.01, 0.1, 0.1, 0.1]),
             max_velocity=np.array([0.5, 0.5, 0.5, 1.0, 1.0, 1.0]),
         )
         controller = AdmittanceController(cfg)
@@ -156,16 +151,14 @@ class AdmittanceControllerTest(unittest.TestCase):
             controller.update(nominal(), wrench(force=(1000.0, 0.0, 0.0)), dt_s=0.01)
 
         state = controller.state()
-        self.assertLessEqual(abs(state.offset[0]), cfg.max_offset[0])
-        self.assertAlmostEqual(state.offset[0], cfg.max_offset[0])
-        self.assertLessEqual(abs(state.velocity[0]), cfg.max_velocity[0])
+        self.assertGreater(state.offset[0], 1.0)
+        self.assertLessEqual(abs(state.velocity[0]), cfg.max_velocity[0] + 1e-12)
 
     def test_velocity_limit_is_applied_before_offset_integration(self) -> None:
         cfg = config(
             mass=1.0,
             damping=1e-9,
             stiffness=0.0,
-            max_offset=np.full(6, 10.0),
             max_velocity=np.full(6, 5.0),
             max_dt_s=0.01,
         )

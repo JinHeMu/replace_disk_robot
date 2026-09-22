@@ -90,7 +90,6 @@ def _run_case(
         keyframe="low",
         admittance=True,
         admittance_axes="translation",
-        admittance_max_offset=0.02,
         force_filter_alpha=0.2,
         force_deadband_n=0.0,
     )

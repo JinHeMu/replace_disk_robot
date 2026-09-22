@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from collections.abc import Callable
 
 import numpy as np
 import glfw
@@ -164,10 +165,19 @@ def _base_translation_from_keys(
     return linear * float(speed_m_s)
 
 
+SampleCallback = Callable[[float, object, JointState, object, "JakaKeyboardServo"], None]
+
+
 class JakaKeyboardServo:
     """State machine for real JAKA keyboard Cartesian servo."""
 
-    def __init__(self, client, args: argparse.Namespace) -> None:
+    def __init__(
+        self,
+        client,
+        args: argparse.Namespace,
+        *,
+        sample_callback: SampleCallback | None = None,
+    ) -> None:
         self.client = client
         self.args = args
         self.kinematics = JakaKinematics()
@@ -214,6 +224,7 @@ class JakaKeyboardServo:
             force_limit_n=args.max_force_n,
             torque_limit_nm=args.max_torque_nm,
         )
+        self.sample_callback = sample_callback
 
         self.last_wrench = None
         self.servo_enabled = False
@@ -406,6 +417,12 @@ class JakaKeyboardServo:
         measured = JointState(self.arm.joint_names, state.joint_position_rad)
         wrench = self.ft.read_wrench_from(state)
         self.last_wrench = wrench
+
+        # Optional instrumentation hook used by data-collection tools.  The
+        # callback receives the same EDG packet that drives this control tick,
+        # so joint state, raw F/T data and robot pose remain synchronized.
+        if self.sample_callback is not None:
+            self.sample_callback(elapsed_s, state, measured, wrench, self)
 
         if not np.isfinite(dt_s) or dt_s <= 0:
             self.stop("invalid_dt", measured)
