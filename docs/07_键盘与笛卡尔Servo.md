@@ -20,7 +20,7 @@ python examples/keyboard_servo.py --model jaka
 python examples/keyboard_servo.py --plot-wrench
 ```
 
-曲线来自去皮后的 `Wrench`，上图为 `Fx/Fy/Fz`（N），下图为 `Tx/Ty/Tz`（N·m）。UR5e 数据表达在 `wrist_ft_site`，JAKA 数据表达在 `tcp_fts_site`。绘图在独立进程中按 10 Hz 刷新，控制进程只向有界队列提交样本，不等待 Matplotlib 布局或重绘。队列满时丢弃绘图样本，不延迟 Servo。为避免静止时约 `1e-11` 的浮点噪声被自动放大，力和力矩默认至少显示 ±1 N 与 ±0.1 N·m；实际数据超出后坐标轴会扩展，不会裁剪数据。
+曲线来自 sensor 坐标系下去偏置、去工具重力后的 `Wrench`，上图为 `Fx/Fy/Fz`（N），下图为 `Tx/Ty/Tz`（N·m）。UR5e 数据表达在 `wrist_ft_site`，JAKA 数据表达在 `tcp_fts_site`。绘图在独立进程中按 10 Hz 刷新，控制进程只向有界队列提交样本，不等待 Matplotlib 布局或重绘。队列满时丢弃绘图样本，不延迟 Servo。为避免静止时约 `1e-11` 的浮点噪声被自动放大，力和力矩默认至少显示 ±1 N 与 ±0.1 N·m；实际数据超出后坐标轴会扩展，不会裁剪数据。
 
 点击新打开的控制窗口，使其获得键盘焦点。按住连续运动，松开保持当前目标。默认平移速度 10 mm/s、角速度 5°/s；可用 `--linear-speed 0.005 --angular-speed-deg 2` 调低速度。鼠标左键拖动调整视角，滚轮缩放。
 
@@ -58,21 +58,19 @@ MUJOCO_GL=egl python examples/jaka_admittance_experiment.py
 数据链：
 
 ```text
-KeyControl -> CartesianJog（base 线速度 + 当前 TCP 角速度）
-           -> KeyboardAdmittanceController
-                ├─ 按键积分：nominal_pose
-                └─ AdmittanceController：nominal + 柔顺偏移 -> corrected_pose
-           -> CartesianServo.submit_pose(corrected_pose)
-           -> 限力门（每仿真子步读取原始 wrench）
-           -> ArmPort.command_joint_positions
+F/T 原始读数（sensor）
+  -> sensor 坐标系：静态偏置 + 下游工具/负载重力补偿
+  -> TCP 原点：力矩平移；TCP 轴：外部载荷符号、低通、死区
+  -> TCP 轴：六维导纳位移/转角
+  -> jaka_base_link（JAKA）或 world（UR5e）：位姿修正
+  -> CartesianServo -> 机械臂关节目标
 ```
 
-力信号在进入导纳前完成：
+MuJoCo 根据 F/T site 所在 body 的下游总质量和当前质心计算重力项；无接触启动时仅标定剩余传感器偏置。补偿公式在 sensor 坐标系下为 `w_contact = w_raw - b_sensor - w_gravity(sensor)`。MuJoCo 传感器读的是 parent-on-child，外载符号为 `-1`。传到 TCP 时，力先旋转，力矩还需加上 `(p_sensor - p_tcp) × f`，随后用 TCP 姿态的逆旋转表达六维力。滤波状态随 TCP 位姿一起变换，避免转动 TCP 时把上一帧的轴分量直接混入当前轴。
 
-1. 从 F/T site 坐标系旋转到运动学 base 坐标系；
-2. 把力矩参考点从 sensor 原点平移到受控 TCP：`tau_tcp = R tau_sensor + r x R f_sensor`；
-3. MuJoCo `force/torque` 传感器约定为 parent-on-child，先乘以 `-1` 得到外部载荷；
-4. 一阶低通和逐轴死区。
+导纳状态是 TCP 局部六维偏移，平移修正按当前实测 TCP 姿态旋转到机械臂运动学基坐标系；旋转修正同样变换到基坐标系后叠加到名义姿态。底盘 `base_link` 与机械臂安装座 `jaka_base_link` 之间还有固定变换；本示例只向六轴机械臂发关节目标，没有底盘速度分配，也没有独立的 `task/contact_frame` 目标生成器。若任务法向不等于 TCP 轴，应先在任务层定义目标力/允许柔顺轴，再变换到 TCP 导纳输入。
+
+限力门逐个仿真子步读取去偏置、去重力但未经低通/死区的 sensor 力范数，以免滤波掩盖峰值。发生故障时停止机械臂目标并锁存；它不构成真机完整安全链。
 
 默认 `--admittance-axes translation`：只有三个平移轴参与柔顺，旋转按键仍能改变名义姿态，但扭矩不会产生导纳转动。`--admittance-axes all` 才开放六轴。可用参数：
 
@@ -84,7 +82,7 @@ KeyControl -> CartesianJog（base 线速度 + 当前 TCP 角速度）
 
 松键后名义位姿保持，导纳仍响应外力；外力消失后，`K` 项使柔顺偏移回零。`AdmittanceController` 和 `KeyboardAdmittanceController` 不再默认裁剪柔顺偏移或名义位姿超前量；工作空间、碰撞和关节安全限制应由调用方或 `CartesianServo` 负责。`focus_lost`、空格停止或导纳/伺服故障后，按 Enter 会以当前实测位姿重置 nominal、导纳状态和滤波状态，不会重放旧偏移或旧按键。
 
-当前边界：MuJoCo 仿真外力方向已验证；导纳参数是针对该仿真场景的起步值，不是真机整定值。没有实现随姿态变化的工具重力补偿，且静态 `tare()` 只覆盖初始姿态；真机接入前必须重新标定传感器符号、坐标系、工具重力和安全阈值。
+当前边界：MuJoCo 使用模型质量和质心完成随姿态变化的重力补偿；这不等于实机标定。导纳参数只是仿真起步值。JAKA EDG 适配器仍使用其自身的静态去偏置与 tool 坐标系滤波路径；实机接入这条新链前，需先确认 EDG 数据是否已由驱动去重力、标定 sensor→TCP 外参、实际负载质量/质心与安全阈值，避免重复补偿。
 
 ## 模块和接口
 

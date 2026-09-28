@@ -30,6 +30,76 @@ def _non_negative_scalar(value: ArrayLike, name: str) -> float:
     return float(array)
 
 
+def _vector(value: ArrayLike, size: int, name: str) -> np.ndarray:
+    array = np.asarray(value, dtype=float)
+    if array.shape != (size,) or not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must be a finite {size}-vector")
+    return array.copy()
+
+
+@dataclass(frozen=True)
+class SensorCompensationConfig:
+    """Raw sensor calibration with gravity expressed in the pose parent frame."""
+
+    frame_id: str
+    load_sign: float = -1.0
+    gravity_frame_id: str = "world"
+    gravity_m_s2: ArrayLike = (0.0, 0.0, -9.80665)
+    payload_mass_kg: float = 0.0
+    payload_com_sensor_m: ArrayLike = (0.0, 0.0, 0.0)
+
+    def __post_init__(self) -> None:
+        if not self.frame_id:
+            raise ValueError("frame_id must not be empty")
+        if self.load_sign not in (-1.0, 1.0):
+            raise ValueError("load_sign must be +1 or -1")
+        if not self.gravity_frame_id:
+            raise ValueError("gravity_frame_id must not be empty")
+        object.__setattr__(self, "gravity_m_s2", _vector(self.gravity_m_s2, 3, "gravity_m_s2"))
+        object.__setattr__(self, "payload_mass_kg", _non_negative_scalar(self.payload_mass_kg, "payload_mass_kg"))
+        object.__setattr__(self, "payload_com_sensor_m", _vector(self.payload_com_sensor_m, 3, "payload_com_sensor_m"))
+
+
+class SensorWrenchCompensator:
+    """Subtract sensor bias and predicted payload gravity in sensor axes.
+
+    Tare requires no contact and separates static bias from the gravity
+    predicted at the tare pose. A payload change requires another tare.
+    """
+
+    def __init__(self, config: SensorCompensationConfig) -> None:
+        if not isinstance(config, SensorCompensationConfig):
+            raise TypeError("config must be SensorCompensationConfig")
+        self.config = config
+        self.bias_sensor = np.zeros(6)
+
+    def _gravity(self, sensor_pose: Pose, mass: float, com: ArrayLike) -> np.ndarray:
+        gravity_sensor = rotation_matrix(sensor_pose.quaternion_wxyz).T @ self.config.gravity_m_s2
+        force = self.config.load_sign * mass * gravity_sensor
+        return np.r_[force, np.cross(_vector(com, 3, "payload_com_sensor_m"), force)]
+
+    def _inputs(self, wrench: Wrench, sensor_pose: Pose, payload_mass_kg, payload_com_sensor_m):
+        if wrench.frame_id != self.config.frame_id:
+            raise ValueError(f"wrench frame {wrench.frame_id!r} must be {self.config.frame_id!r}")
+        if sensor_pose.frame_id != self.config.gravity_frame_id:
+            raise ValueError(
+                f"sensor pose frame {sensor_pose.frame_id!r} must be "
+                f"{self.config.gravity_frame_id!r}"
+            )
+        mass = self.config.payload_mass_kg if payload_mass_kg is None else _non_negative_scalar(payload_mass_kg, "payload_mass_kg")
+        com = self.config.payload_com_sensor_m if payload_com_sensor_m is None else payload_com_sensor_m
+        return self._gravity(sensor_pose, mass, com)
+
+    def tare(self, wrench: Wrench, sensor_pose: Pose, *, payload_mass_kg=None, payload_com_sensor_m=None) -> None:
+        predicted = self._inputs(wrench, sensor_pose, payload_mass_kg, payload_com_sensor_m)
+        self.bias_sensor = wrench.as_vector() - predicted
+
+    def compensate(self, wrench: Wrench, sensor_pose: Pose, *, payload_mass_kg=None, payload_com_sensor_m=None) -> Wrench:
+        predicted = self._inputs(wrench, sensor_pose, payload_mass_kg, payload_com_sensor_m)
+        corrected = wrench.as_vector() - self.bias_sensor - predicted
+        return Wrench(self.config.frame_id, corrected[:3], corrected[3:])
+
+
 @dataclass(frozen=True)
 class WrenchProcessorConfig:
     """Configuration for :class:`WrenchProcessor`.
@@ -113,6 +183,31 @@ def external_wrench_at_point(
     )
 
 
+def external_wrench_at_tcp(
+    wrench: Wrench,
+    sensor_pose_in_base: Pose,
+    tcp_pose_in_base: Pose,
+    tcp_frame_id: str,
+    *,
+    load_sign: float = -1.0,
+) -> Wrench:
+    """Shift moment to TCP origin and express force and moment in TCP axes."""
+    if sensor_pose_in_base.frame_id != tcp_pose_in_base.frame_id:
+        raise ValueError("sensor and TCP poses must have the same parent frame")
+    if not tcp_frame_id:
+        raise ValueError("tcp_frame_id must not be empty")
+    in_base = external_wrench_at_point(
+        wrench, sensor_pose_in_base, tcp_pose_in_base.position_m,
+        load_sign=load_sign,
+    )
+    tcp_from_base = rotation_matrix(tcp_pose_in_base.quaternion_wxyz).T
+    return Wrench(
+        tcp_frame_id,
+        tcp_from_base @ in_base.force_n,
+        tcp_from_base @ in_base.torque_nm,
+    )
+
+
 class WrenchProcessor:
     """Stateful external-load filter in one explicit output frame."""
 
@@ -121,10 +216,12 @@ class WrenchProcessor:
             raise TypeError("config must be a WrenchProcessorConfig")
         self.config = config
         self._filtered = np.zeros(6)
+        self._previous_tcp_pose: Pose | None = None
 
     def reset(self) -> None:
         """Clear the low-pass state.  The next update seeds the filter."""
         self._filtered[:] = 0.0
+        self._previous_tcp_pose = None
 
     def state(self) -> Wrench:
         """Return the last filtered external wrench."""
@@ -152,9 +249,33 @@ class WrenchProcessor:
             tcp_position_in_frame,
             load_sign=self.config.load_sign,
         )
+        self._previous_tcp_pose = None
+        return self._filter(external)
+
+    def update_tcp(self, wrench: Wrench, sensor_pose_in_base: Pose, tcp_pose_in_base: Pose) -> Wrench:
+        """Transform to TCP, then filter and apply deadbands in TCP axes."""
+        external = external_wrench_at_tcp(
+            wrench, sensor_pose_in_base, tcp_pose_in_base,
+            self.config.frame_id, load_sign=self.config.load_sign,
+        )
+        return self._filter(external, tcp_pose_in_base)
+
+    def _filter(self, external: Wrench, tcp_pose: Pose | None = None) -> Wrench:
         value = external.as_vector()
+        previous = self._filtered.copy()
+        if tcp_pose is not None and self._previous_tcp_pose is not None:
+            old = self._previous_tcp_pose
+            if old.frame_id != tcp_pose.frame_id:
+                raise ValueError("TCP parent frame changed; reset the wrench filter")
+            base_from_old = rotation_matrix(old.quaternion_wxyz)
+            new_from_base = rotation_matrix(tcp_pose.quaternion_wxyz).T
+            force_base = base_from_old @ previous[:3]
+            moment_base = base_from_old @ previous[3:]
+            moment_base += np.cross(old.position_m - tcp_pose.position_m, force_base)
+            previous = np.r_[new_from_base @ force_base, new_from_base @ moment_base]
         alpha = float(self.config.filter_alpha)
-        self._filtered = alpha * value + (1.0 - alpha) * self._filtered
+        self._filtered = alpha * value + (1.0 - alpha) * previous
+        self._previous_tcp_pose = tcp_pose
         output = self._filtered.copy()
         force_deadband = float(self.config.force_deadband_n)
         torque_deadband = float(self.config.torque_deadband_nm)

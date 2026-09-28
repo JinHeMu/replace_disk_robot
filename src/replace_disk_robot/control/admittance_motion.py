@@ -8,9 +8,10 @@ nominal Cartesian pose:
 * releasing the keys stops the nominal pose but keeps compliance active;
 * the admittance controller adds an unbounded offset to that pose.
 
-The class is backend-neutral.  Callers provide an already-transformed external
-wrench and the measured TCP pose in the same named frame; IK, collision checks,
-workspace limits and joint limits stay in
+The class is backend-neutral.  With tcp_frame_id set, callers provide the
+external wrench in TCP axes and the measured TCP pose in the kinematics base
+frame. The compliant offset is transformed into that base frame before Servo.
+IK, collision checks, workspace limits and joint limits stay in
 :class:`~replace_disk_robot.control.servo.CartesianServo`.
 """
 
@@ -61,9 +62,9 @@ class KeyboardAdmittanceController:
     * ``linear_m_s`` in the shared base/output frame;
     * ``angular_rad_s`` intrinsic to the *nominal TCP* axes.
 
-    ``update`` integrates the nominal pose, limits its lead over the measured
-    pose, masks disabled admittance axes, and returns the admittance-corrected
-    pose that a pose-tracking servo should follow.
+    ``update`` integrates the nominal pose, masks disabled admittance axes,
+    and returns the admittance-corrected pose for a pose-tracking servo.
+    The caller owns any limit on nominal lead or compliant displacement.
     """
 
     def __init__(
@@ -71,6 +72,8 @@ class KeyboardAdmittanceController:
         admittance: AdmittanceControllerPort,
         initial_pose: Pose,
         config: MotionReferenceConfig | None = None,
+        *,
+        tcp_frame_id: str | None = None,
     ) -> None:
         missing = [
             name
@@ -89,6 +92,14 @@ class KeyboardAdmittanceController:
         self.admittance = admittance
         self.config = config or MotionReferenceConfig()
         self._frame_id = initial_pose.frame_id
+        if tcp_frame_id is not None and not tcp_frame_id:
+            raise ValueError("tcp_frame_id must not be empty")
+        self._tcp_frame_id = tcp_frame_id
+        expected_admittance_frame = tcp_frame_id or self._frame_id
+        if admittance.state().frame_id != expected_admittance_frame:
+            raise ValueError(
+                f"admittance frame must be {expected_admittance_frame!r}"
+            )
         self._nominal = initial_pose
         self._corrected = initial_pose
         self._enabled_axes = self.config.enabled_axes.copy()
@@ -125,7 +136,9 @@ class KeyboardAdmittanceController:
         self._check_frame(measured_pose, "measured_pose")
         self._nominal = measured_pose
         self._corrected = measured_pose
-        self.admittance.reset(measured_pose)
+        self.admittance.reset(
+            self._tcp_origin() if self._tcp_frame_id else measured_pose
+        )
 
     def update(
         self,
@@ -145,10 +158,11 @@ class KeyboardAdmittanceController:
                 f"jog frame {jog.base_frame!r} does not match controller frame "
                 f"{self._frame_id!r}"
             )
-        if external_wrench.frame_id != self._frame_id:
+        wrench_frame = self._tcp_frame_id or self._frame_id
+        if external_wrench.frame_id != wrench_frame:
             raise ValueError(
                 f"wrench frame {external_wrench.frame_id!r} does not match "
-                f"controller frame {self._frame_id!r}"
+                f"controller frame {wrench_frame!r}"
             )
         if not np.isfinite(dt_s) or dt_s <= 0.0 or dt_s > self.config.max_dt_s:
             raise ValueError(
@@ -158,8 +172,22 @@ class KeyboardAdmittanceController:
         candidate = self._advance(self._nominal, jog, dt_s)
         self._nominal = candidate
         masked_wrench = self._mask_wrench(external_wrench)
-        self._corrected = self.admittance.update(candidate, masked_wrench, dt_s)
+        if self._tcp_frame_id:
+            self.admittance.update(self._tcp_origin(), masked_wrench, dt_s)
+            offset = self.admittance.state().offset
+            base_from_tcp = rotation_matrix(measured_pose.quaternion_wxyz)
+            position = candidate.position_m + base_from_tcp @ offset[:3]
+            world_delta = quaternion_from_rotation_vector(base_from_tcp @ offset[3:])
+            quaternion = multiply(world_delta, candidate.quaternion_wxyz)
+            self._corrected = Pose(
+                self._frame_id, position, quaternion / np.linalg.norm(quaternion)
+            )
+        else:
+            self._corrected = self.admittance.update(candidate, masked_wrench, dt_s)
         return self._corrected
+
+    def _tcp_origin(self) -> Pose:
+        return Pose(self._tcp_frame_id, np.zeros(3), [1.0, 0.0, 0.0, 0.0])
 
     def _check_frame(self, pose: Pose, name: str) -> None:
         if not isinstance(pose, Pose):

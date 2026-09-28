@@ -175,3 +175,27 @@ def test_config_validation() -> None:
         MotionReferenceConfig(enabled_axes=(True,) * 5)
     with pytest.raises(ValueError):
         MotionReferenceConfig(max_dt_s=0.0)
+
+
+
+def test_tcp_admittance_offset_rotates_to_base_pose() -> None:
+    start = pose(quaternion=[np.sqrt(.5), 0.0, 0.0, np.sqrt(.5)])
+    motion = KeyboardAdmittanceController(
+        admittance(frame_id="tcp", stiffness=0.0),
+        start,
+        tcp_frame_id="tcp",
+    )
+    corrected = motion.update(
+        CartesianJog("world", [0.0] * 3, [0.0] * 3),
+        Wrench("tcp", [10.0, 0.0, 0.0], [0.0] * 3),
+        start, .01,
+    )
+    assert motion.state().frame_id == "tcp"
+    assert motion.state().offset[0] > 0.0
+    assert abs(corrected.position_m[0]) < 1e-12
+    assert corrected.position_m[1] > 0.0
+    with pytest.raises(ValueError):
+        motion.update(
+            CartesianJog("world", [0.0] * 3, [0.0] * 3),
+            Wrench("world", [0.0] * 3, [0.0] * 3), start, .01,
+        )

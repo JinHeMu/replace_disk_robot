@@ -124,8 +124,7 @@ def _run_case(
         t=[], actual=[], nominal=[], corrected=[], offset=[], external_force=[], status=[]
     )
 
-    zero_wrench = Wrench(app.ft.frame_id, np.zeros(3), np.zeros(3))
-    app.ft.read_wrench = lambda: zero_wrench
+    original_raw = app.ft.raw
 
     # A short pre-roll lets the servo reach its hold target before the step.
     for _ in range(20):
@@ -133,12 +132,13 @@ def _run_case(
     if snapshot:
         capture("initial")
 
-    loaded_wrench_fn = lambda: _raw_wrench_for_external_force(app, force_base)  # noqa: E731
-    app.ft.read_wrench = loaded_wrench_fn
+    app.ft.raw = lambda: (
+        original_raw() + _raw_wrench_for_external_force(app, force_base).as_vector()
+    )
 
     for step in range(load_steps + release_steps):
         if step == load_steps:
-            app.ft.read_wrench = lambda: zero_wrench
+            app.ft.raw = original_raw
         app.tick()
         actual = app.kinematics.forward(app.robot.read_joint_state())
         state = app.motion.state()
@@ -146,8 +146,11 @@ def _run_case(
         records["actual"].append(actual.position_m.copy())
         records["nominal"].append(app.motion.nominal_pose.position_m.copy())
         records["corrected"].append(app.motion.corrected_pose.position_m.copy())
-        records["offset"].append(state.offset[:3].copy())
-        records["external_force"].append(app.last_external_wrench.force_n.copy())
+        base_from_tcp = rotation_matrix(actual.quaternion_wxyz)
+        records["offset"].append((base_from_tcp @ state.offset[:3]).copy())
+        records["external_force"].append(
+            (base_from_tcp @ app.last_external_wrench.force_n).copy()
+        )
         records["status"].append(app.servo.status)
         if renderer is not None and step % render_stride == 0:
             capture()

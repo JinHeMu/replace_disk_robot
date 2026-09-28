@@ -52,11 +52,12 @@ def test_contact_is_allowed_and_force_above_20n_stops():
     assert app.guard.force_limit_n == 20.0
     assert np.isinf(app.guard.torque_limit_nm)
 
-    app.ft.read_wrench = lambda: Wrench('wrist_ft_site', [19.9, 0, 0], [0, 0, 0])
+    original_raw = app.ft.raw
+    app.ft.raw = lambda: original_raw() + np.array([19.9, 0, 0, 0, 0, 0])
     app.tick()
     assert app.servo.fault is None
 
-    app.ft.read_wrench = lambda: Wrench('wrist_ft_site', [20.1, 0, 0], [0, 0, 0])
+    app.ft.raw = lambda: original_raw() + np.array([20.1, 0, 0, 0, 0, 0])
     app.tick()
     assert app.servo.fault == 'force_limit'
 

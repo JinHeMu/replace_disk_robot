@@ -10,9 +10,11 @@ current tool0 +Z/-Z axis regardless of the selected command frame.
 
     keys -> nominal pose -> admittance correction -> pose-tracking servo -> robot
 
-The measured F/T wrench is transformed to the kinematics base frame, shifted to
-the TCP, filtered/deadbanded, and converted to an external load before being
-fed to the admittance model.  The force limit guard stays on the raw sensor path.
+Raw F/T bias and payload gravity are removed in sensor axes.  The external
+wrench is shifted to the TCP, then filtered and deadbanded in TCP axes.
+Admittance integrates a TCP-local correction, which is rotated into the
+kinematics base frame before the pose servo.  The force guard sees the
+unfiltered, compensated sensor wrench.
 """
 from __future__ import annotations
 
@@ -30,7 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from replace_disk_robot.adapters.mujoco import (
     load_model, reset_keyframe, MujocoRobotAdapter, MujocoWristFTAdapter,
 )
-from replace_disk_robot.contact import WrenchProcessor, WrenchProcessorConfig
+from replace_disk_robot.contact import (
+    SensorCompensationConfig, SensorWrenchCompensator,
+    WrenchProcessor, WrenchProcessorConfig,
+)
 from replace_disk_robot.control import (
     AdmittanceConfig, AdmittanceController, CartesianServo, KeyboardAdmittanceController,
     KeyControl, MotionReferenceConfig, ServoConfig,
@@ -137,8 +142,18 @@ class ServoDemo:
         for _ in range(round(.5/self.model.opt.timestep)):
             self.robot.command_joint_positions(self.robot.read_joint_state())
             mujoco.mj_step(self.model, self.data)
-        self.ft.tare()
-        self.last_wrench = self.ft.read_wrench()
+        self.sensor_compensator = SensorWrenchCompensator(SensorCompensationConfig(
+            frame_id=self.ft.frame_id,
+            load_sign=self.wrench_load_sign,
+            gravity_m_s2=np.asarray(self.model.opt.gravity).copy(),
+        ))
+        sensor_pose = self._sensor_pose_in_world()
+        mass, com = self._sensor_payload()
+        self.sensor_compensator.tare(
+            self._raw_sensor_wrench(), sensor_pose,
+            payload_mass_kg=mass, payload_com_sensor_m=com,
+        )
+        self.last_wrench = self._compensated_sensor_wrench()
         self.servo.reset(self.robot.read_joint_state())
         self.steps_per_tick = round(.01/self.model.opt.timestep)
         self.dt = self.steps_per_tick*self.model.opt.timestep
@@ -148,7 +163,7 @@ class ServoDemo:
                 if admittance_axes == 'translation' else [True] * 6
             )
             self.admittance = AdmittanceController(AdmittanceConfig(
-                frame_id=self.base_frame,
+                frame_id=self.tool_frame,
                 mass=[1.0, 1.0, 1.0, .01, .01, .01],
                 damping=[50.0, 50.0, 50.0, 1.0, 1.0, 1.0],
                 stiffness=[200.0, 200.0, 200.0, 20.0, 20.0, 20.0],
@@ -162,15 +177,16 @@ class ServoDemo:
                     enabled_axes=enabled_axes,
                     max_dt_s=max(.01, self.dt),
                 ),
+                tcp_frame_id=self.tool_frame,
             )
             self.wrench_processor = WrenchProcessor(WrenchProcessorConfig(
-                frame_id=self.base_frame,
+                frame_id=self.tool_frame,
                 load_sign=self.wrench_load_sign,
                 filter_alpha=force_filter_alpha,
                 force_deadband_n=force_deadband_n,
                 torque_deadband_nm=force_torque_deadband_nm,
             ))
-            self.last_external_wrench = Wrench(self.base_frame, np.zeros(3), np.zeros(3))
+            self.last_external_wrench = Wrench(self.tool_frame, np.zeros(3), np.zeros(3))
         self._verify_tcp()
 
     def _verify_tcp(self):
@@ -223,7 +239,7 @@ class ServoDemo:
             self.motion.reset(self.kinematics.forward(measured))
             self.wrench_processor.reset()
             self.last_external_wrench = Wrench(
-                self.base_frame, np.zeros(3), np.zeros(3),
+                self.tool_frame, np.zeros(3), np.zeros(3),
             )
 
     def _current_pose(self):
@@ -270,6 +286,36 @@ class ServoDemo:
             )
         return self.keys.command()
 
+    def _sensor_pose_in_world(self) -> Pose:
+        """Pose of the F/T site in the gravity reference frame."""
+        site = self.data.site(self.force_sensor_site_name)
+        return Pose(
+            "world", np.asarray(site.xpos).copy(),
+            quaternion_from_rotation_matrix(site.xmat.reshape(3, 3)),
+        )
+
+    def _sensor_payload(self) -> tuple[float, np.ndarray]:
+        """Current downstream mass and COM, expressed in sensor axes."""
+        site = self.data.site(self.force_sensor_site_name)
+        body_id = int(self.model.site_bodyid[site.id])
+        mass = float(self.model.body_subtreemass[body_id])
+        sensor_from_world = site.xmat.reshape(3, 3).T
+        com_sensor = sensor_from_world @ (
+            np.asarray(self.data.subtree_com[body_id]) - np.asarray(site.xpos)
+        )
+        return mass, com_sensor
+
+    def _raw_sensor_wrench(self) -> Wrench:
+        vector = self.ft.raw()
+        return Wrench(self.ft.frame_id, vector[:3], vector[3:])
+
+    def _compensated_sensor_wrench(self) -> Wrench:
+        mass, com = self._sensor_payload()
+        return self.sensor_compensator.compensate(
+            self._raw_sensor_wrench(), self._sensor_pose_in_world(),
+            payload_mass_kg=mass, payload_com_sensor_m=com,
+        )
+
     def _sensor_pose_in_base(self) -> Pose:
         """Return the MuJoCo F/T site pose in the kinematics base frame."""
         site = self.data.site(self.force_sensor_site_name)
@@ -292,16 +338,15 @@ class ServoDemo:
 
     def _submit_admittance_command(self, measured) -> None:
         """Run keyboard nominal pose + admittance and refresh the pose servo."""
-        raw_wrench = self.ft.read_wrench()
-        self.last_wrench = raw_wrench
-        if not np.isfinite(raw_wrench.as_vector()).all():
+        try:
+            sensor_wrench = self._compensated_sensor_wrench()
+        except ValueError:
             self.stop('invalid_wrench')
             return
+        self.last_wrench = sensor_wrench
         actual_pose = self.kinematics.forward(measured)
-        external_wrench = self.wrench_processor.update(
-            raw_wrench,
-            self._sensor_pose_in_base(),
-            actual_pose.position_m,
+        external_wrench = self.wrench_processor.update_tcp(
+            sensor_wrench, self._sensor_pose_in_base(), actual_pose,
         )
         self.last_external_wrench = external_wrench
         jog = self._jog_to_servo(self.motion.nominal_pose)
@@ -317,13 +362,16 @@ class ServoDemo:
                 self.servo.submit(self._jog_to_servo(), self.data.time)
         target = self.servo.update(measured, self.dt, self.data.time)
         for _ in range(self.steps_per_tick):
-            self.last_wrench = self.ft.read_wrench()
-            wrench = self.last_wrench.as_vector()
-            if not np.isfinite(wrench).all():
+            try:
+                self.last_wrench = self._compensated_sensor_wrench()
+            except ValueError:
                 self.stop('invalid_wrench')
                 target = self.servo.target
             else:
-                _, tripped = self.guard.filter_arm_target(wrench, self.robot.arm_position(), target.position_rad)
+                wrench = self.last_wrench.as_vector()
+                _, tripped = self.guard.filter_arm_target(
+                    wrench, self.robot.arm_position(), target.position_rad,
+                )
                 if tripped and not self.servo.fault:
                     self.stop('force_limit')
                     target = self.servo.target
@@ -440,12 +488,15 @@ def headless_admittance_report(model_name='ur5e', keyframe=None, command_frame='
     # 2. Constant external load on the TCP: compliance must move along the load
     #    and release back toward the nominal pose once the load is removed.
     start = app.kinematics.forward(app.robot.read_joint_state()).position_m.copy()
-    app.ft.read_wrench = lambda: _synthetic_raw_wrench(app, [0.0, 0.0, -5.0])
+    original_raw = app.ft.raw
+    app.ft.raw = lambda: (
+        original_raw() + _synthetic_raw_wrench(app, [0.0, 0.0, -5.0]).as_vector()
+    )
     for _ in range(150):
         app.tick()
     loaded = app.kinematics.forward(app.robot.read_joint_state()).position_m.copy()
     load_offset = app.motion.state().offset.copy()
-    app.ft.read_wrench = lambda: Wrench(app.ft.frame_id, np.zeros(3), np.zeros(3))
+    app.ft.raw = original_raw
     for _ in range(150):
         app.tick()
     released = app.kinematics.forward(app.robot.read_joint_state()).position_m.copy()
@@ -454,7 +505,11 @@ def headless_admittance_report(model_name='ur5e', keyframe=None, command_frame='
         passed=bool(
             not app.servo.fault
             and (loaded - start)[2] < -0.003
-            and load_offset[2] < 0.0
+            and (
+                rotation_matrix(
+                    app.kinematics.forward(app.robot.read_joint_state()).quaternion_wxyz
+                ) @ load_offset[:3]
+            )[2] < 0.0
             and np.linalg.norm(released - start) < 0.003
         ),
         loaded_displacement_m=(loaded - start).tolist(),

@@ -11,6 +11,13 @@ Here h_b is the signed payload gravity vector in the robot base frame,
 r_sc is the sensor-origin-to-payload-CoM vector, and b_f/b_tau are constant
 sensor offsets.  The signed gravity vector makes the fit independent of the
 sensor's force sign convention; mass is norm(h_b) / g.
+
+h_b is a free 3D vector, so gravity does not have to be parallel to base -Z:
+the tilt of the chassis (or of the floor it stands on) is estimated together
+with everything else instead of being assumed away, and only norm(h_b) enters
+the mass.  The fitted direction is reported as ``gravity_tilt_deg`` and
+``gravity_tilt_azimuth_deg`` (the base-XY direction the base slopes towards),
+which an independent inclinometer reading can be compared against.
 """
 
 from __future__ import annotations
@@ -205,9 +212,21 @@ def identify_payload(
     predicted_torque = (torque_matrix @ torque_solution).reshape(-1, 3)
     force_residual = forces - predicted_force
     torque_residual = torques - predicted_torque
-    vertical_alignment_deg = math.degrees(math.acos(float(np.clip(
-        abs(gravity_vector_base[2]) / gravity_norm, 0.0, 1.0
-    ))))
+
+    # The gravity vector is a free 3D quantity, so a tilted chassis is already
+    # part of the fit.  The model is sign-agnostic (a flipped sensor sign
+    # convention and an upside-down base look the same), and a robot base is
+    # never more than 90 deg from level, so the sign of the vertical component
+    # decides which way is down.  ``tilt_deg`` is then the chassis inclination
+    # and ``tilt_azimuth_deg`` the base-XY direction the chassis slopes towards.
+    gravity_unit_base = gravity_vector_base / gravity_norm
+    down_unit_base = (
+        gravity_unit_base if gravity_unit_base[2] <= 0.0 else -gravity_unit_base
+    )
+    tilt_deg = math.degrees(math.acos(float(np.clip(-down_unit_base[2], 0.0, 1.0))))
+    tilt_azimuth_deg = math.degrees(
+        math.atan2(float(down_unit_base[1]), float(down_unit_base[0]))
+    )
     force_condition = float(np.linalg.cond(force_matrix))
     torque_condition = float(np.linalg.cond(torque_matrix))
 
@@ -218,8 +237,12 @@ def identify_payload(
         "gravity_m_s2": gravity_m_s2,
         "mass_kg": gravity_norm / gravity_m_s2,
         "signed_gravity_force_base_n": gravity_vector_base.tolist(),
-        "gravity_direction_base_unit": (gravity_vector_base / gravity_norm).tolist(),
-        "vertical_alignment_error_deg": vertical_alignment_deg,
+        "gravity_direction_base_unit": gravity_unit_base.tolist(),
+        "gravity_down_base_unit": down_unit_base.tolist(),
+        "gravity_tilt_deg": tilt_deg,
+        "gravity_tilt_azimuth_deg": tilt_azimuth_deg,
+        # Legacy name for the same quantity, kept for existing JSON consumers.
+        "vertical_alignment_error_deg": tilt_deg,
         "center_of_mass_sensor_m": center_of_mass_sensor.tolist(),
         "center_of_mass_sensor_mm": (1000.0 * center_of_mass_sensor).tolist(),
         "force_bias_sensor_n": force_bias.tolist(),
@@ -251,13 +274,49 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--huber-delta", type=float, default=2.5)
     parser.add_argument("--max-com-m", type=float, default=0.5,
                         help="warn if identified sensor-to-CoM distance exceeds this")
+    parser.add_argument("--max-tilt-deg", type=float, default=30.0,
+                        help=("warn if the fitted gravity direction is more than this far from "
+                              "base -Z; a tilted chassis or an inclined floor is a legitimate "
+                              "reason, and it is always part of the fit"))
     return parser.parse_args()
+
+
+def build_warnings(
+    result: dict[str, object],
+    *,
+    max_tilt_deg: float,
+    max_com_m: float,
+) -> list[str]:
+    """Human-readable sanity notes for one identification result.
+
+    The fitted gravity vector is free in 3D, so a tilted chassis is not an error
+    by itself: the tilt check only catches gross frame/sign mistakes.
+    """
+
+    warnings: list[str] = []
+    tilt_deg = float(result["gravity_tilt_deg"])
+    if tilt_deg > max_tilt_deg:
+        warnings.append(
+            f"fitted gravity is {tilt_deg:.1f} deg away from base -Z "
+            f"(down-slope azimuth {float(result['gravity_tilt_azimuth_deg']):.1f} deg in base XY); "
+            "a tilted chassis or an inclined floor explains this and it is fitted, not assumed - "
+            "otherwise check FK, the sensor-to-tool rotation, the force sign/frame and the "
+            "controller compensation mode"
+        )
+    if np.linalg.norm(np.asarray(result["center_of_mass_sensor_m"], dtype=float)) > max_com_m:
+        warnings.append("identified sensor-to-CoM distance is physically implausible")
+    fit = result["fit"]
+    if fit["force_matrix_condition"] > 100.0 or fit["torque_matrix_condition"] > 100.0:
+        warnings.append("identification is poorly conditioned; collect more diverse orientations")
+    return warnings
 
 
 def main() -> None:
     args = _parse_args()
     if args.min_samples <= 0 or args.gravity <= 0 or args.huber_delta <= 0:
         raise SystemExit("--min-samples, --gravity and --huber-delta must be positive")
+    if args.max_tilt_deg <= 0 or args.max_com_m <= 0:
+        raise SystemExit("--max-tilt-deg and --max-com-m must be positive")
     csv_path = args.csv.resolve()
     output = (
         args.output.resolve()
@@ -282,17 +341,9 @@ def main() -> None:
         result["sensor_to_tool_rotation"] = r_sensor_tool.tolist()
         result["tool_to_sensor_m"] = tool_to_sensor.tolist()
 
-    warnings: list[str] = []
-    if result["vertical_alignment_error_deg"] > 15.0:
-        warnings.append(
-            "fitted gravity is more than 15 deg from base vertical; check FK, "
-            "sensor-to-tool rotation, force sign/frame, and compensation mode"
-        )
-    if np.linalg.norm(result["center_of_mass_sensor_m"]) > args.max_com_m:
-        warnings.append("identified sensor-to-CoM distance is physically implausible")
-    fit = result["fit"]
-    if fit["force_matrix_condition"] > 100.0 or fit["torque_matrix_condition"] > 100.0:
-        warnings.append("identification is poorly conditioned; collect more diverse orientations")
+    warnings = build_warnings(
+        result, max_tilt_deg=args.max_tilt_deg, max_com_m=args.max_com_m
+    )
     result["warnings"] = warnings
 
     if output.exists() and not args.overwrite:
@@ -303,7 +354,20 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"[identify] poses: {result['pose_count']} ({result['sample_count']} samples)")
-    print(f"[identify] mass: {result['mass_kg']:.6f} kg")
+    print(
+        f"[identify] mass: {result['mass_kg']:.6f} kg (|h| = "
+        f"{result['mass_kg'] * result['gravity_m_s2']:.4f} N)"
+    )
+    print(
+        "[identify] gravity force in base frame: "
+        + np.array2string(np.asarray(result["signed_gravity_force_base_n"]), precision=4)
+        + " N"
+    )
+    print(
+        f"[identify] gravity direction: tilt {result['gravity_tilt_deg']:.2f} deg from base -Z "
+        f"(down-slope azimuth {result['gravity_tilt_azimuth_deg']:.2f} deg in base XY); "
+        "a tilted chassis is fitted here, not assumed"
+    )
     print(
         "[identify] CoM from sensor: "
         + np.array2string(np.asarray(result["center_of_mass_sensor_mm"]), precision=3)
@@ -316,8 +380,8 @@ def main() -> None:
             + " mm"
         )
     print(
-        f"[identify] residual RMS: force={fit['force_rms_n']:.5f} N, "
-        f"torque={fit['torque_rms_nm']:.6f} Nm"
+        f"[identify] residual RMS: force={result['fit']['force_rms_n']:.5f} N, "
+        f"torque={result['fit']['torque_rms_nm']:.6f} Nm"
     )
     for warning in warnings:
         print(f"[identify] WARNING: {warning}")

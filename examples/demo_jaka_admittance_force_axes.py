@@ -13,6 +13,8 @@ MuJoCo scene and repository adapters:
 Every 2 seconds a different external force/torque is applied to the tool in the
 JAKA base frame.  The admittance controller produces a compliant Cartesian
 offset and the Cartesian servo tracks it with the JAKA position actuators.
+When the MuJoCo viewer is enabled, a colored arrow shows the current applied
+force direction at the wrist force/torque sensor site.
 
 Run with the MuJoCo viewer (activate the isolated conda env first):
     conda activate /home/a/replace_disk_robot/.conda_envs/replace_disk_robot
@@ -63,6 +65,43 @@ WRENCH_SCHEDULE: tuple[tuple[str, tuple[float, float, float], tuple[float, float
     ("+Z torque", (0.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
     ("release", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
 )
+
+
+def _update_force_direction_arrow(
+    viewer,
+    data: mujoco.MjData,
+    site_id: int,
+    force_world: np.ndarray,
+) -> None:
+    """Draw the currently applied world-frame force in the passive viewer."""
+    scene = viewer.user_scn
+    scene.ngeom = 0
+
+    force_magnitude = float(np.linalg.norm(force_world))
+    if force_magnitude <= 1e-9:
+        return
+
+    start = np.asarray(data.site(site_id).xpos, dtype=float).copy()
+    arrow_length = min(0.40, max(0.14, 0.05 * force_magnitude))
+    end = start + (np.asarray(force_world, dtype=float) / force_magnitude) * arrow_length
+
+    arrow = scene.geoms[0]
+    mujoco.mjv_initGeom(
+        arrow,
+        mujoco.mjtGeom.mjGEOM_ARROW,
+        np.zeros(3, dtype=float),
+        np.zeros(3, dtype=float),
+        np.eye(3, dtype=float).reshape(9),
+        np.array([1.0, 0.18, 0.04, 1.0], dtype=np.float32),
+    )
+    mujoco.mjv_connector(
+        arrow,
+        mujoco.mjtGeom.mjGEOM_ARROW,
+        0.020,
+        start,
+        end,
+    )
+    scene.ngeom = 1
 
 
 def _viewer_preflight() -> tuple[bool, str | None]:
@@ -182,8 +221,15 @@ def main() -> None:
         mujoco.mjtObj.mjOBJ_BODY,
         BASE_BODY_NAME,
     )
+    force_sensor_site_id = mujoco.mj_name2id(
+        model,
+        mujoco.mjtObj.mjOBJ_SITE,
+        "tcp_fts_site",
+    )
     if tool_body_id < 0 or base_body_id < 0:
         raise KeyError("JAKA model is missing the tool or base body")
+    if force_sensor_site_id < 0:
+        raise KeyError("JAKA model is missing the wrist force/torque sensor site")
 
     # The JAKA base is fixed in this demo; this converts base-frame schedule
     # wrenches into world-frame MuJoCo applied forces.
@@ -236,6 +282,13 @@ def main() -> None:
                 torque_world = rotation_world_base @ torque_base
                 data.xfrc_applied[tool_body_id, :3] = force_world
                 data.xfrc_applied[tool_body_id, 3:] = torque_world
+                if viewer is not None:
+                    _update_force_direction_arrow(
+                        viewer,
+                        data,
+                        force_sensor_site_id,
+                        force_world,
+                    )
 
                 actual = robot.read_joint_state()
                 corrected = admittance.update(

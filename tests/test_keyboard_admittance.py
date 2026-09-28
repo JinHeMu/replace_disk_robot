@@ -42,19 +42,26 @@ def test_admittance_mode_keeps_keyboard_tracking():
 def test_admittance_mode_moves_with_external_force_and_recovers():
     app = ServoDemo(admittance=True)
     start = app.kinematics.forward(app.robot.read_joint_state()).position_m.copy()
-    app.ft.read_wrench = lambda: _raw_wrench_for_external_force(app, [0.0, 0.0, -5.0])
+    original_raw = app.ft.raw
+    app.ft.raw = lambda: (
+        original_raw()
+        + _raw_wrench_for_external_force(app, [0.0, 0.0, -5.0]).as_vector()
+    )
     for _ in range(150):
         app.tick()
     loaded = app.kinematics.forward(app.robot.read_joint_state()).position_m.copy()
     offset = app.motion.state().offset.copy()
 
-    app.ft.read_wrench = lambda: Wrench(app.ft.frame_id, np.zeros(3), np.zeros(3))
+    app.ft.raw = original_raw
     for _ in range(150):
         app.tick()
     released = app.kinematics.forward(app.robot.read_joint_state()).position_m.copy()
 
     assert app.servo.fault is None
     assert (loaded - start)[2] < -0.003
-    assert offset[2] < 0.0
+    tcp_from_base = rotation_matrix(
+        app.kinematics.forward(app.robot.read_joint_state()).quaternion_wxyz
+    ).T
+    assert offset[:3] @ (tcp_from_base @ np.array([0.0, 0.0, -1.0])) > 0.0
     assert np.linalg.norm(released - start) < 0.003
     assert np.linalg.norm(app.motion.state().offset) < 0.001
