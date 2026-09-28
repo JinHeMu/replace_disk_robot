@@ -1,110 +1,182 @@
-# 六维力传感器末端负载重力辨识
+# 六维力传感器末端负载重力辨识：使用方法
 
-本目录包含三个脚本：
+本目录三个脚本的实机使用流程：
 
-- `collect_ft_gravity_data.py`：复用 `examples/jaka_driver_tool/jaka_keyboard_servo.py`
-  的实机键盘笛卡尔 Servo，以 5 Hz 自动连续采集同步的关节状态、末端姿态和六维力传感器
-  原始值（不需要按键触发采集）。
-- `identify_ft_payload.py`：从多个静止姿态辨识负载质量、质心和六维传感器常值偏置。
-- `plot_ft_gravity_data.py`：用辨识结果离线计算重力/零偏补偿，并绘制补偿前后的六轴曲线。
+- `collect_ft_gravity_data.py`：实机键盘 Servo + 5 Hz 自动采集静态姿态数据（**不需要按采集键**）；
+- `identify_ft_payload.py`：离线辨识负载质量、质心、传感器零偏和重力方向（含底盘倾斜）；
+- `plot_ft_gravity_data.py`：离线补偿并绘制补偿前后的六轴曲线。
 
-## 1. 采集
+以下命令假设仓库位于 `~/replace_disk_robot`。控制器 IP 不是默认值（`10.5.5.100` /
+本机 `10.5.5.127`）时，所有脚本都加上 `--robot-ip <控制器IP> --local-ip <本机IP>`。
+操作前把急停放在手边，并清空机械臂周围。
 
-先按仓库原有流程启动并使能 JAKA，再建议先执行只读验证：
+## 0. 前置条件
+
+- 采集脚本用键盘窗口操作，必须在**有显示器**的机器上运行（或 `ssh -X` 转发）；
+  没有显示会报 `cannot initialize GLFW display`。
+- 采集脚本默认**不覆盖**已有 CSV；重跑时换 `--output`，或显式加 `--overwrite`。
+
+## 1. 上电并使能 JAKA
+
+采集脚本只负责使能 Servo，不做上电和使能，这一步必须先做：
 
 ```bash
-python3 tool/collect_ft_gravity_data.py --dry-run --seconds 20
+cd ~/replace_disk_robot
+python3 examples/jaka_driver_tool/jaka_start.py
 ```
 
-确认网络、EDG 状态、六维数据和窗口均正常后，进行实机采集：
+## 2. 只读自检（不动机械臂）
 
 ```bash
-python3 tool/collect_ft_gravity_data.py \
-  --output tool/ft_gravity_samples.csv
+# 2a. 先确认六维数据本身正常：只读、不使能 Servo、不发运动
+python3 examples/jaka_driver_tool/jaka_ft_test.py --seconds 10
+
+# 2b. 再确认采集脚本、窗口和自动采集逻辑正常
+python3 tool/collect_ft_gravity_data.py --dry-run --seconds 25 \
+  --output /tmp/ft_dry_run.csv --overwrite
 ```
 
-脚本默认不覆盖已有 CSV；确实需要替换时显式增加 `--overwrite`。
+2b 应在启动约 2 s 后出现
 
-操作方式与原键盘 Servo 一致，但**不需要按采集键**：CSV 以 `--capture-rate-hz`
-（默认 5 Hz）连续记录整个会话，是否采样由程序自己判断。把末端移动到一个无碰撞姿态、
-松开运动键，机械臂静止 `--settle-seconds`（默认 0.75 s）后自动记录一个
-`--capture-seconds`（默认 10 s，5 Hz 下 51 行）的静态窗口；再移动机械臂，下一个静止
-姿态会自动记录。建议采集至少 12 个姿态，并让工具坐标系的 X/Y/Z 轴相对重力方向都有
-明显变化。不要在接触工件、拖链拉扯明显或负载晃动时采样。
+```
+[capture] #0: still for 0.80s; recording 51 rows at 5 Hz
+```
 
-- `Space`：停止并保持
-- `Enter`：从当前实测关节位置重新锚定并恢复
-- `Esc`：安全退出并关闭 Servo 模式
-- 静止窗口内一旦检测到运动或 Servo 故障，该窗口作废并按 `capture_id=-1` 留在 CSV 里，
-  重新静止后自动重采，全程不需要按键；
-- 运动过程中的采样也以 `capture_id=-1` 写入，所以 CSV 始终是完整、按时间递增的 5 Hz
-  记录；`identify_ft_payload.py` 和 `plot_ft_gravity_data.py` 会自动忽略这些行；
-- 只有 CSV 记录被抽稀到 5 Hz，伺服与安全控制环仍以 `--rate-hz`（默认 125 Hz）运行，
-  因为 JAKA Servo 需要保持命令速率，且 `ServoConfig.max_dt_s` 不接受低于 20 Hz 的周期；
-- 保存一个窗口后需要再次移动机械臂才会开始下一组，避免在同一个姿态上重复采集。
+再过 10 s 出现
 
-CSV 中 `raw_f*`/`raw_t*` 始终来自同一 EDG 包的原始 `torque_sensor`，启动 tare 只用于
-在线力限位，不会修改辨识数据。辨识要求控制器输出的是**未做重力补偿**的原始六维值；
-若当前 `--torque-sensor-mode` 已由控制器补偿重力，必须先切换为原始输出模式。
+```
+[capture] saved #0: 51 rows; total=1. Move the arm to a new orientation for the next pose.
+```
 
-辨识脚本默认 `--min-samples 50`，5 Hz 采样时默认的 10 s 窗口刚好给出 51 行；如果把
-`--capture-seconds` 调小，请同时把 `identify_ft_payload.py --min-samples` 调小，
-否则该姿态会被跳过（采集脚本启动时会给出提示）。
+看到这两行说明 5 Hz 自动采集链路已经通了。
 
-## 2. 离线辨识
+## 3. 实机采集
+
+```bash
+python3 tool/collect_ft_gravity_data.py --output tool/ft_gravity_samples.csv
+```
+
+操作节奏：
+
+1. 用键盘把末端移到一个新的、无碰撞的姿态：`W/S/A/D` 平移，`R/F` 沿当前 tool0 ±Z
+   进退，`Q/E` 和方向键旋转。姿态不好摆时把速度调小，例如加 `--angular-speed-deg 2`。
+2. **松开运动键并保持静止**：静止 `--settle-seconds`（默认 0.75 s）后自动开始记录，
+   记录满 `--capture-seconds`（默认 10 s，5 Hz 下 51 行）后打印
+   `[capture] saved #N: 51 rows; total=N.`。
+3. 看到 `saved` 之后再移动机械臂，重复下一个姿态。建议采集 **12 个以上**姿态，并让工具
+   坐标系的 X/Y/Z 轴相对重力方向都有明显变化（这决定底盘倾斜方向能否辨识准确）。
+4. 若打印 `[capture] #N not saved: arm moved (...)`，说明窗口中间动了，属正常情况：
+   停下来 0.75 s 后会自动重采，不需要任何按键。
+5. 采集期间不要接触工件、不要让拖链明显拉扯、不要让人碰到机械臂。
+6. 按键：`Space` 停止并保持，`Enter` 从当前实测关节位置重新锚定并恢复，`Esc` 退出
+   （退出时自动关闭 Servo、关闭 EDG、logout，并打印本次采集统计）。
+
+时间预算：每个姿态约 11 s 静止加摆位时间，12 个姿态约 3–5 分钟。
+
+### 采集脚本常用参数
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `--capture-rate-hz` | 5 | CSV 采样率；只有记录被抽稀，伺服环仍是 `--rate-hz`（125 Hz） |
+| `--capture-seconds` | 10 | 每个静止窗口长度，5 Hz 下 51 行 |
+| `--settle-seconds` | 0.75 | 静止多久后开始记录 |
+| `--start-delay-seconds` | 2 | 启动后多久才允许开始第一个窗口 |
+| `--output` / `--overwrite` | `tool/ft_gravity_samples.csv` | 输出路径；已存在时报错，需显式覆盖 |
+| `--dry-run` | 关 | 只读采集，不使能 Servo、不发运动指令 |
+| `--torque-sensor-mode` | 1 | 必须输出**未做重力补偿**的原始六维值 |
+
+## 4. 采集后自检
+
+```bash
+python3 - <<'PY'
+import csv, collections
+rows = list(csv.DictReader(open("tool/ft_gravity_samples.csv")))
+counts = collections.Counter(int(r["capture_id"]) for r in rows)
+ok = {k: v for k, v in sorted(counts.items()) if k >= 0}
+print("总行数:", len(rows), "| 有效姿态:", len(ok), "| 每窗行数:", sorted(set(ok.values())))
+print("capture_id:", list(ok), "| 非窗口行:", counts.get(-1, 0))
+PY
+```
+
+期望每窗 **51 行**，有效姿态数等于实际采集的姿态数；少于 6 个姿态无法辨识。
+
+## 5. 离线辨识
 
 ```bash
 python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv
 ```
 
-结果写入 `tool/ft_gravity_samples_identified.json`，主要字段为：
+结果默认写入 `tool/ft_gravity_samples_identified.json`（与 CSV 同名前缀），终端同时打印
+质量、base 系重力向量、重力倾角/方位角、质心和残差。
 
-- `mass_kg`：负载质量，等于 `|h|/g`，只取决于重力向量的模，与重力方向无关；
-- `signed_gravity_force_base_n`：拟合出的三维重力向量（在 `jaka_base_link` 表达）；
-- `gravity_tilt_deg`、`gravity_tilt_azimuth_deg`、`gravity_down_base_unit`：重力方向相对
-  base −Z 的倾角、倾斜方位的 base XY 方位角（0° 为 base +X，逆时针指向 +Y）和指向“下方”
-  的单位向量，可与倾角仪读数交叉验证；
-- `center_of_mass_sensor_mm`：相对传感器测量原点的质心；
-- `center_of_mass_tool_mm`：按当前仓库传感器到 `tool0` 的固定变换换算的质心；
-- `force_bias_sensor_n`、`torque_bias_sensor_nm`：原始传感器常值偏置；
-- `fit`：力/力矩残差和矩阵条件数；
-- `warnings`：坐标系、姿态激励或物理合理性警告。
+- 重力向量是自由三维量，**底盘倾斜是拟合出来的**：`gravity_tilt_deg`、
+  `gravity_tilt_azimuth_deg`、`gravity_down_base_unit` 可与倾角仪读数对照；
+- `mass_kg = |h| / g`，只取决于重力向量的模，与倾斜无关；
+- `fit.force_rms_n`、`fit.torque_rms_nm` 越小越好；`fit.force_matrix_condition` 应远小于 100，
+  否则说明姿态激励不够，需要补采更多不同朝向；
+- 报 `identified gravity load is nearly zero` 时，说明控制器已对力做了重力补偿，必须换成
+  未补偿的 `--torque-sensor-mode` 重新采集；
+- 默认 10 s 窗口 = 51 行，对应辨识脚本默认的 `--min-samples 50`；若改小
+  `--capture-seconds`，请把 `--min-samples` 调到 `N*5+1` 以内，否则该姿态会被跳过。
 
-**重力向量本来就是拟合量，不假定它沿 base −Z。** 模型里的 `h_b` 是自由三维向量，底盘倾斜、
-地面坡度以及机械臂安装座的固定变换都会体现在 `signed_gravity_force_base_n` 里；质量只取它
-的模除以 g，所以倾斜不会影响质量。`--max-tilt-deg`（默认 30°）只用来发现坐标系、符号或
-补偿模式这一类量级错误，正常的底盘倾斜不会被判为故障。拟合本身与力的正负号约定无关，
-`gravity_down_base_unit` 会按“底盘不可能倒过来”的假设把方向归一成真正的“下方”。
+## 6. 绘图与独立交叉验证
 
-> 采集和辨识都在 `jaka_base_link` 下表达；若要与底盘 `base_link` 比较，还需乘上
-> `base_link → jaka_base_link` 的固定变换。
+```bash
+python3 tool/plot_ft_gravity_data.py tool/ft_gravity_samples.csv --show
+# → tool/ft_gravity_samples_gravity_comparison.png
+```
 
-把辨识结果送进在线补偿 `SensorWrenchCompensator` 时，必须使用这条带倾斜的重力向量，
-否则会残留 `|h|·sin(tilt)` 的水平重力分量（对 `gravity_test01` 的 15.94°、6.78 N 就是
-1.86 N，实测力残差会从 0.19 N 涨到 1.10 N）：
+用**没有参与辨识**的另一组数据做交叉验证：
+
+```bash
+python3 tool/collect_ft_gravity_data.py --output tool/ft_gravity_check.csv
+python3 tool/plot_ft_gravity_data.py tool/ft_gravity_check.csv \
+  --identified tool/ft_gravity_samples_identified.json
+```
+
+`--capture-id N` 只画某一个姿态；`--include-noncapture` 连运动过程中的数据一起画。
+
+## 7. 把辨识结果用于在线补偿
 
 ```python
+import json
+import numpy as np
+from replace_disk_robot.contact.force_processing import (
+    SensorCompensationConfig,
+    SensorWrenchCompensator,
+)
+
+fit = json.load(open("tool/ft_gravity_samples_identified.json"))
 config = SensorCompensationConfig(
     frame_id="tcp_fts_site",
-    gravity_frame_id="jaka_base_link",                          # 传感器位姿所在的坐标系
+    gravity_frame_id="jaka_base_link",                     # 传感器位姿所在的坐标系
     gravity_m_s2=np.asarray(fit["signed_gravity_force_base_n"]) / fit["mass_kg"],
-    load_sign=1.0,                                              # 直接用带符号的重力向量
+    load_sign=1.0,                                         # 直接用带符号的重力向量
     payload_mass_kg=fit["mass_kg"],
     payload_com_sensor_m=fit["center_of_mass_sensor_m"],
 )
+compensator = SensorWrenchCompensator(config)
+# 无接触状态下先做一次 tare()，之后用 compensate() 扣偏置和随姿态变化的重力
 ```
 
-## 3. 绘制补偿前后曲线
+不要沿用默认的竖直重力 `(0, 0, -9.80665)`：以仓库自带的 `gravity_test01` 数据为例，
+底盘倾斜 15.94°，漏掉的水平重力分量是 1.86 N，力残差会从 0.19 N 涨到 1.10 N。
+
+## 8. 收尾
 
 ```bash
-python3 tool/plot_ft_gravity_data.py tool/gravity_test01.csv --show
+python3 examples/jaka_driver_tool/jaka_stop.py
 ```
 
-绘图脚本默认读取同目录、同文件名前缀的 `_identified.json`，并保存
-`*_gravity_comparison.png`。默认只画 CSV 中已接受的静止窗口；可用 `--capture-id 3`
-只看某一个姿态。曲线在采样窗口内连续绘制，窗口间用点线连接，以区分采样值与窗口之间的插值。补偿结果按传感器坐标系计算：从原始力/力矩中扣除辨识出的重力项和常值偏置。
-CSV 的 `processed_*` 可能还包含坐标变换、滤波和死区，因此不用于这张重力补偿对比图。
+## 常见问题速查
 
-模型假设采样期间机器人和负载完全静止、负载刚性固定、传感器比例因子和轴间耦合已由
-厂家标定。本工具辨识负载与零偏，不替代六维传感器的比例/耦合标定。将结果写入机器人
-控制器前，应先用未参与辨识的静态姿态做交叉验证，并低速、无接触地检查补偿后的残差。
+| 现象 | 处理 |
+| --- | --- |
+| `output CSV already exists` | 加 `--overwrite`，或换一个 `--output` |
+| `cannot initialize GLFW display` | 到有桌面的机器上运行，或使用 `ssh -X` |
+| 窗口一直不保存 | 机械臂没停稳或一直按着方向键；看窗口标题里的 `armed` / `settling` / `recording` 状态 |
+| 有效姿态数少于采集次数 | 窗口中途被移动打断而作废，属正常，重采该姿态即可 |
+| 辨识报姿态数不足 | 至少需要 6 个有效姿态，建议 12 个以上 |
+| 想改窗口长度 | 采集加 `--capture-seconds N`，辨识同步把 `--min-samples` 调到 `N*5+1` 以内 |
+| 重力向量解出来接近 0 | 控制器已做重力补偿，换成未补偿的 `--torque-sensor-mode` 重采 |
+| 倾角告警 | 超过 `--max-tilt-deg`（默认 30°）才提示，用于发现坐标系/符号量级错误；正常底盘倾斜不会告警 |
