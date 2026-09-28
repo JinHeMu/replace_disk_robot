@@ -70,7 +70,15 @@ class LiveTypePlotter:
             axis.set_ylabel(group.ylabel)
             axis.grid(True, alpha=0.3)
             line_groups.append(tuple(axis.plot([], [], label=label)[0] for label in group.labels))
-            axis.legend(loc="upper left", ncols=min(3, len(group.labels)))
+            columns = min(3, len(group.labels))
+            # Matplotlib <3.6 uses ``ncol``; newer versions use ``ncols``.
+            try:
+                axis.legend(loc="upper left", ncols=columns)
+            except TypeError:
+                try:
+                    axis.legend(loc="upper left", ncol=columns)
+                except TypeError:
+                    axis.legend(loc="upper left")
         self._axes[-1].set_xlabel("time [s]")
         figure.suptitle(sample.title)
         figure.tight_layout()

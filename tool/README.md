@@ -98,7 +98,8 @@ print("capture_id:", list(ok), "| 非窗口行:", counts.get(-1, 0))
 PY
 ```
 
-期望每窗 **51 行**，有效姿态数等于实际采集的姿态数；少于 6 个姿态无法辨识。
+期望每窗 **51 行**，有效姿态数等于实际采集的姿态数。
+默认辨识模式（全行）不依赖 `capture_id`；只有加 `--static-poses` 时才要求有效姿态数，且少于 6 个姿态无法辨识。
 
 ## 5. 离线辨识
 
@@ -106,8 +107,20 @@ PY
 python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv
 ```
 
+默认行为是**忽略采集器的静态窗口标记，直接把 CSV 每一行当作一个准静态样本**。
+只要运动速度足够慢，运动过程中的数据也会参与重力/质心/零偏拟合，不再要求
+`capture_id >= 0`，也不要求每个姿态凑够 50 行。
+
+如果仍然想使用采集器的 `capture_id` 窗口分割，并取每个窗口的中值作为一个姿态：
+
+```bash
+python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv --static-poses
+```
+
 结果默认写入 `tool/ft_gravity_samples_identified.json`（与 CSV 同名前缀），终端同时打印
-质量、base 系重力向量、重力倾角/方位角、质心和残差。
+`pose_source`、质量、base 系重力向量、重力倾角/方位角、质心和残差。
+`--min-samples` 在默认模式下表示 CSV 总行数下限；在 `--static-poses` 模式下表示每个
+窗口的最小行数（默认 50）。
 
 - 重力向量是自由三维量，**底盘倾斜是拟合出来的**：`gravity_tilt_deg`、
   `gravity_tilt_azimuth_deg`、`gravity_down_base_unit` 可与倾角仪读数对照；
@@ -134,9 +147,14 @@ python3 tool/plot_ft_gravity_data.py tool/ft_gravity_check.csv \
   --identified tool/ft_gravity_samples_identified.json
 ```
 
-`--capture-id N` 只画某一个姿态；`--include-noncapture` 连运动过程中的数据一起画。
+`--capture-id N` 只画某一个姿态；如果 CSV 全是 `capture_id=-1`，绘图脚本会自动改用全部数据，也可以显式加 `--include-noncapture`。
 
 ## 7. 把辨识结果用于在线补偿
+
+`examples/jaka_driver_tool/jaka_keyboard_servo.py` 默认读取
+`tool/ft_gravity_samples_identified.json`，在力限保护之前完成上述传感器零偏、
+负载重力和质心力矩补偿，并默认打开补偿后的六维力曲线。下面的代码演示如何在
+其他算法中手动接入同一套 `SensorWrenchCompensator`。
 
 ```python
 import json
@@ -176,7 +194,8 @@ python3 examples/jaka_driver_tool/jaka_stop.py
 | `cannot initialize GLFW display` | 到有桌面的机器上运行，或使用 `ssh -X` |
 | 窗口一直不保存 | 机械臂没停稳或一直按着方向键；看窗口标题里的 `armed` / `settling` / `recording` 状态 |
 | 有效姿态数少于采集次数 | 窗口中途被移动打断而作废，属正常，重采该姿态即可 |
-| 辨识报姿态数不足 | 至少需要 6 个有效姿态，建议 12 个以上 |
-| 想改窗口长度 | 采集加 `--capture-seconds N`，辨识同步把 `--min-samples` 调到 `N*5+1` 以内 |
+| 辨识报姿态数不足 | 默认全行模式至少需要 `--min-samples` 行，且模型本身至少需要 6 个有效姿态；数据太少时降低 `--min-samples` 并补采 |
+| 想改窗口长度 | 使用 `--static-poses` 时采集加 `--capture-seconds N`，辨识同步把 `--min-samples` 调到 `N*5+1` 以内 |
+| 采集 CSV 全是 `capture_id=-1` | 默认全行模式可以直接辨识；若用 `--static-poses` 则会跳过这些行 |
 | 重力向量解出来接近 0 | 控制器已做重力补偿，换成未补偿的 `--torque-sensor-mode` 重采 |
 | 倾角告警 | 超过 `--max-tilt-deg`（默认 30°）才提示，用于发现坐标系/符号量级错误；正常底盘倾斜不会告警 |

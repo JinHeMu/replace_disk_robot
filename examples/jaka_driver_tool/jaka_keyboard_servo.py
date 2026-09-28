@@ -14,16 +14,23 @@ base axes.  With ``--command-frame tool`` those other keys use the current
 
 The 125 Hz loop reads EDG state, applies the same damped Cartesian servo and
 force gate used by the simulation, and sends joint targets through
-``JakaRobotAdapter.command_joint_positions()``.  Use ``--dry-run`` first: it
-reads EDG/F/T and keyboard state but never enables servo or sends commands.
+``JakaRobotAdapter.command_joint_positions()``.  By default it loads the
+payload-identification JSON and removes the identified sensor bias, payload
+gravity and center-of-mass moment before the force gate.  A non-blocking
+six-axis force/torque plot is shown by default.  ``--tare-compensated`` takes
+the current gravity-compensated wrench as an additional zero offset.  Use
+``--dry-run`` first: it reads EDG/F/T and keyboard state but never enables
+servo or sends commands.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 import glfw
@@ -40,16 +47,28 @@ from jaka_common import (
     fmt_array,
     make_client,
 )
+from replace_disk_robot.contact import (
+    SensorCompensationConfig,
+    SensorWrenchCompensator,
+    WrenchProcessor,
+    WrenchProcessorConfig,
+)
 from replace_disk_robot.control import (
     CartesianJog,
     CartesianServo,
     KeyControl,
     ServoConfig,
 )
-from replace_disk_robot.core import JointState
-from replace_disk_robot.core.rotation import rotation_matrix
+from replace_disk_robot.core import JointState, Pose, Wrench
+from replace_disk_robot.core.rotation import (
+    quaternion_from_rotation_matrix,
+    rotation_matrix,
+)
 from replace_disk_robot.kinematics.jaka import JakaKinematics
 from replace_disk_robot.safety import ForceLimitGuard
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 _KEY_TO_NAME = {
@@ -101,8 +120,12 @@ def _parse_args() -> argparse.Namespace:
                         help="run without GLFW and command zero velocity (requires --seconds)")
     parser.add_argument("--dry-run", action="store_true",
                         help="read EDG/F/T and keyboard; never enable servo or send motion")
-    parser.add_argument("--plot-wrench", action="store_true",
-                        help="show non-blocking live force/torque curves")
+    plot_group = parser.add_mutually_exclusive_group()
+    plot_group.add_argument("--plot-wrench", dest="plot_wrench", action="store_true",
+                            help="show non-blocking live force/torque curves (default)")
+    plot_group.add_argument("--no-plot", dest="plot_wrench", action="store_false",
+                            help="disable the default live force/torque plot")
+    parser.set_defaults(plot_wrench=True)
     parser.add_argument("--max-force-n", type=float, default=10.0,
                         help="stop when filtered force norm exceeds this value")
     parser.add_argument("--max-torque-nm", type=float, default=2.0,
@@ -115,12 +138,30 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--tare-period-ms", type=float, default=10.0)
     parser.add_argument("--no-tare", action="store_true",
                         help="skip the startup F/T tare")
+    parser.add_argument(
+        "--tare-compensated",
+        action="store_true",
+        help=("after gravity compensation, take the current gravity-compensated "
+              "wrench as zero and subtract it from later readings"),
+    )
     parser.add_argument("--alpha", type=float, default=0.2,
                         help="F/T low-pass filter alpha")
-    parser.add_argument("--deadband-force", type=float, default=1.0)
-    parser.add_argument("--deadband-torque", type=float, default=0.2)
+    parser.add_argument("--deadband-force", type=float, default=0.0)
+    parser.add_argument("--deadband-torque", type=float, default=0.0)
     parser.add_argument("--identity-transform", action="store_true",
                         help="skip F/T frame/arm compensation; useful for raw diagnostics")
+    parser.add_argument(
+        "--gravity-json",
+        type=Path,
+        default=PROJECT_ROOT / "tool" / "ft_gravity_samples_identified.json",
+        help=("payload gravity identification JSON used for online compensation "
+              "(default: tool/ft_gravity_samples_identified.json)"),
+    )
+    parser.add_argument(
+        "--no-gravity-compensation",
+        action="store_true",
+        help="disable payload gravity compensation and use the adapter tare only",
+    )
     return parser.parse_args()
 
 
@@ -205,6 +246,21 @@ class JakaKeyboardServo:
             deadband_force_n=args.deadband_force,
             deadband_torque_nm=args.deadband_torque,
         )
+        # Online gravity compensation is configured in initialize() when a
+        # payload identification JSON is available.
+        self.sensor_frame_id = "tcp_fts_sensor"
+        self.sensor_to_tool_rotation = np.asarray(
+            DEFAULT_SENSOR_TO_TOOL_ROTATION if args.identity_transform else rotation,
+            dtype=float,
+        ).copy()
+        self.tool_to_sensor_m = np.asarray(
+            np.zeros(3) if args.identity_transform else tool_arm,
+            dtype=float,
+        ).copy()
+        self.gravity_compensator: SensorWrenchCompensator | None = None
+        self.wrench_processor: WrenchProcessor | None = None
+        self.payload_mass_kg: float | None = None
+        self.payload_com_sensor_m: np.ndarray | None = None
 
         self.servo = CartesianServo(
             self.kinematics,
@@ -237,19 +293,36 @@ class JakaKeyboardServo:
     # Lifecycle
     # ------------------------------------------------------------------
     def initialize(self) -> None:
-        q0 = self.arm.read_joint_state()
+        state0 = self.client.read_edg_state()
+        q0 = JointState(self.arm.joint_names, state0.joint_position_rad)
         print(
             f"[keyboard] initial q={fmt_array(q0.position_rad, 4)} "
             f"base={self.base_frame} command_frame={self.command_frame}"
         )
 
-        if not self.args.no_tare:
-            print(f"[keyboard] taring FT with {self.args.tare_samples} samples")
-            bias = self.ft.tare(
-                samples=self.args.tare_samples,
-                period_s=self.args.tare_period_ms / 1000.0,
-            )
-            print(f"[keyboard] FT bias={fmt_array(bias, 4)}")
+        gravity_json = getattr(self.args, "gravity_json", None)
+        use_gravity = bool(gravity_json) and not getattr(
+            self.args, "no_gravity_compensation", False
+        )
+        if use_gravity:
+            self._configure_gravity_compensation()
+            if getattr(self.args, "tare_compensated", False):
+                self._tare_compensated_wrench(state0, q0)
+        else:
+            if getattr(self.args, "tare_compensated", False):
+                raise ValueError(
+                    "--tare-compensated requires gravity compensation; "
+                    "remove --no-gravity-compensation"
+                )
+            if not getattr(self.args, "no_tare", False):
+                print(f"[keyboard] taring FT with {self.args.tare_samples} samples")
+                bias = self.ft.tare(
+                    samples=self.args.tare_samples,
+                    period_s=self.args.tare_period_ms / 1000.0,
+                )
+                print(f"[keyboard] FT bias={fmt_array(bias, 4)}")
+
+        self.last_wrench = self._read_wrench(state0, q0)
 
         if self.args.dry_run:
             self.servo.reset(q0)
@@ -263,9 +336,153 @@ class JakaKeyboardServo:
 
         # The robot can settle slightly when servo mode is entered.  Reset the
         # hold target from the post-enable measured state.
-        q_servo = self.arm.read_joint_state()
+        state_servo = self.client.read_edg_state()
+        q_servo = JointState(self.arm.joint_names, state_servo.joint_position_rad)
         self.servo.reset(q_servo)
+        self.last_wrench = self._read_wrench(state_servo, q_servo)
         self.status = "holding"
+
+    def _configure_gravity_compensation(self) -> None:
+        path = Path(self.args.gravity_json).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"gravity identification JSON not found: {path}")
+        try:
+            fit = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"cannot read gravity JSON {path}: {exc}") from exc
+        if not isinstance(fit, dict):
+            raise ValueError(f"gravity JSON root must be an object: {path}")
+
+        try:
+            mass = float(fit["mass_kg"])
+            h_base = np.asarray(fit["signed_gravity_force_base_n"], dtype=float)
+            com_sensor = np.asarray(fit["center_of_mass_sensor_m"], dtype=float)
+            force_bias = np.asarray(fit["force_bias_sensor_n"], dtype=float)
+            torque_bias = np.asarray(fit["torque_bias_sensor_nm"], dtype=float)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"gravity JSON is missing required fields: {exc}") from exc
+
+        if not np.isfinite(mass) or mass <= 0.0:
+            raise ValueError(f"gravity JSON mass_kg must be positive, got {mass!r}")
+        for name, vector in (
+            ("signed_gravity_force_base_n", h_base),
+            ("center_of_mass_sensor_m", com_sensor),
+            ("force_bias_sensor_n", force_bias),
+            ("torque_bias_sensor_nm", torque_bias),
+        ):
+            if vector.shape != (3,) or not np.isfinite(vector).all():
+                raise ValueError(f"gravity JSON {name} must be a finite 3-vector")
+
+        response = fit.get("sensor_to_tool_rotation")
+        if response is None:
+            sensor_to_tool = np.asarray(DEFAULT_SENSOR_TO_TOOL_ROTATION, dtype=float)
+        else:
+            sensor_to_tool = np.asarray(response, dtype=float)
+        if sensor_to_tool.shape != (3, 3) or not np.isfinite(sensor_to_tool).all():
+            raise ValueError("gravity JSON sensor_to_tool_rotation must be finite 3x3")
+
+        response = fit.get("tool_to_sensor_m")
+        if response is None:
+            tool_to_sensor = np.asarray(DEFAULT_TOOL_ARM_M, dtype=float)
+        else:
+            tool_to_sensor = np.asarray(response, dtype=float)
+        if tool_to_sensor.shape != (3,) or not np.isfinite(tool_to_sensor).all():
+            raise ValueError("gravity JSON tool_to_sensor_m must be a finite 3-vector")
+
+        self.sensor_to_tool_rotation = sensor_to_tool
+        self.tool_to_sensor_m = tool_to_sensor
+        self.payload_mass_kg = mass
+        self.payload_com_sensor_m = com_sensor
+        self.gravity_compensator = SensorWrenchCompensator(SensorCompensationConfig(
+            frame_id=self.sensor_frame_id,
+            load_sign=1.0,
+            gravity_frame_id=self.base_frame,
+            gravity_m_s2=h_base / mass,
+            payload_mass_kg=mass,
+            payload_com_sensor_m=com_sensor,
+        ))
+        # The identification result already contains the static sensor bias.
+        self.gravity_compensator.bias_sensor = np.r_[force_bias, torque_bias]
+        self.wrench_processor = WrenchProcessor(WrenchProcessorConfig(
+            frame_id=self.tool_frame,
+            load_sign=1.0,
+            filter_alpha=self.args.alpha,
+            force_deadband_n=self.args.deadband_force,
+            torque_deadband_nm=self.args.deadband_torque,
+        ))
+        print(
+            f"[keyboard] gravity compensation ON: {path} "
+            f"mass={mass:.6f} kg, |h|={float(np.linalg.norm(h_base)):.4f} N"
+        )
+
+    def _sensor_pose_in_base(self, measured: JointState) -> Pose:
+        tool_pose = self.kinematics.forward(measured)
+        base_from_tool = rotation_matrix(tool_pose.quaternion_wxyz)
+        base_from_sensor = base_from_tool @ self.sensor_to_tool_rotation
+        sensor_origin = tool_pose.position_m + base_from_tool @ self.tool_to_sensor_m
+        return Pose(
+            self.base_frame,
+            sensor_origin,
+            quaternion_from_rotation_matrix(base_from_sensor),
+        )
+
+    def _tare_compensated_wrench(self, state, measured: JointState) -> None:
+        """Zero the current gravity-compensated sensor wrench.
+
+        The offset is folded into ``SensorWrenchCompensator.bias_sensor`` so the
+        low-pass filter and force guard see the already-tared wrench.
+        """
+
+        if self.gravity_compensator is None or self.wrench_processor is None:
+            raise RuntimeError("gravity compensation is not configured")
+        raw = Wrench(
+            self.sensor_frame_id,
+            state.torque_sensor[:3].copy(),
+            state.torque_sensor[3:].copy(),
+        )
+        sensor_pose = self._sensor_pose_in_base(measured)
+        compensated_sensor = self.gravity_compensator.compensate(
+            raw,
+            sensor_pose,
+            payload_mass_kg=self.payload_mass_kg,
+            payload_com_sensor_m=self.payload_com_sensor_m,
+        )
+        offset = compensated_sensor.as_vector()
+        self.gravity_compensator.bias_sensor = (
+            self.gravity_compensator.bias_sensor + offset
+        )
+        self.wrench_processor.reset()
+        print(
+            "[keyboard] gravity-compensated tare: "
+            f"offset={fmt_array(offset, 4)}"
+        )
+
+    def _gravity_compensated_wrench(self, state, measured: JointState) -> Wrench:
+        if self.gravity_compensator is None or self.wrench_processor is None:
+            raise RuntimeError("gravity compensation is not configured")
+        raw = Wrench(
+            self.sensor_frame_id,
+            state.torque_sensor[:3].copy(),
+            state.torque_sensor[3:].copy(),
+        )
+        sensor_pose = self._sensor_pose_in_base(measured)
+        compensated_sensor = self.gravity_compensator.compensate(
+            raw,
+            sensor_pose,
+            payload_mass_kg=self.payload_mass_kg,
+            payload_com_sensor_m=self.payload_com_sensor_m,
+        )
+        tool_pose = self.kinematics.forward(measured)
+        return self.wrench_processor.update_tcp(
+            compensated_sensor,
+            sensor_pose,
+            tool_pose,
+        )
+
+    def _read_wrench(self, state, measured: JointState) -> Wrench:
+        if self.gravity_compensator is not None and self.wrench_processor is not None:
+            return self._gravity_compensated_wrench(state, measured)
+        return self.ft.read_wrench_from(state)
 
     def shutdown(self) -> None:
         if self._closed:
@@ -357,7 +574,7 @@ class JakaKeyboardServo:
         try:
             state = self.client.read_edg_state()
             measured = JointState(self.arm.joint_names, state.joint_position_rad)
-            wrench = self.ft.read_wrench_from(state)
+            wrench = self._read_wrench(state, measured)
         except Exception as exc:  # noqa: BLE001 - stay stopped on bad feedback
             print(f"[keyboard] resume denied: feedback unavailable: {exc}", file=sys.stderr)
             return False
@@ -415,7 +632,12 @@ class JakaKeyboardServo:
     def tick(self, elapsed_s: float, dt_s: float) -> None:
         state = self.client.read_edg_state()
         measured = JointState(self.arm.joint_names, state.joint_position_rad)
-        wrench = self.ft.read_wrench_from(state)
+        try:
+            wrench = self._read_wrench(state, measured)
+        except (ValueError, RuntimeError) as exc:
+            self.stop("invalid_wrench", measured)
+            print(f"[keyboard] invalid wrench: {exc}", file=sys.stderr)
+            return
         self.last_wrench = wrench
 
         # Optional instrumentation hook used by data-collection tools.  The
@@ -554,6 +776,13 @@ def _run_window(app: JakaKeyboardServo) -> None:
         glfw.set_window_title(window, _window_title(app))
 
         if app.args.plot_wrench:
+            import os
+            import tempfile
+
+            os.environ.setdefault(
+                "MPLCONFIGDIR",
+                str(Path(tempfile.gettempdir()) / "replace_disk_robot_matplotlib"),
+            )
             from replace_disk_robot.visual import ProcessTypePlotter
             plotter = ProcessTypePlotter(window_s=10.0, refresh_hz=10.0)
 

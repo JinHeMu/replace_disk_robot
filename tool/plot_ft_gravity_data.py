@@ -6,9 +6,12 @@ The compensation is reconstructed from the payload-identification JSON:
     f_comp = f_raw - b_f - R_base_sensor.T @ h_base
     t_comp = t_raw - b_t - r_com_sensor x (R_base_sensor.T @ h_base)
 
-By default, only accepted static captures (capture_id >= 0) are plotted. The
-CSV's processed_* columns are intentionally not used: they may also include
-frame transforms, filtering and deadbands from the online controller.
+By default, accepted static captures (capture_id >= 0) are preferred. If the
+CSV has no accepted captures at all (for example, a slow quasi-static session
+where every row is capture_id=-1), all rows are used automatically unless
+``--capture-id`` was supplied. The CSV's processed_* columns are intentionally
+not used: they may also include frame transforms, filtering and deadbands from
+the online controller.
 """
 
 from __future__ import annotations
@@ -83,7 +86,7 @@ def _load_rows(
         *RAW_TORQUE_COLUMNS,
         *ROTATION_COLUMNS,
     }
-    selected: list[dict[str, str]] = []
+    all_rows: list[tuple[int, dict[str, str]]] = []
     with csv_path.open("r", newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         missing = required.difference(reader.fieldnames or ())
@@ -94,15 +97,28 @@ def _load_rows(
                 row_capture_id = int(row["capture_id"])
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"invalid capture_id on CSV line {line_number}") from exc
-            if capture_id is not None and row_capture_id != capture_id:
-                continue
-            if not include_noncapture and row_capture_id < 0:
-                continue
-            selected.append(row)
+            all_rows.append((row_capture_id, row))
+
+    selected = [
+        row
+        for row_capture_id, row in all_rows
+        if (capture_id is None or row_capture_id == capture_id)
+        and (include_noncapture or row_capture_id >= 0)
+    ]
+    auto_included_noncapture = False
+    if not selected and capture_id is None and not include_noncapture:
+        # Common case for slow-motion datasets: the collector never marked an
+        # accepted window, so every row has capture_id=-1.  Fall back to all
+        # rows automatically instead of failing with "no rows".
+        selected = [row for _row_capture_id, row in all_rows]
+        auto_included_noncapture = True
 
     if not selected:
         target = f"capture_id={capture_id}" if capture_id is not None else "the selected rows"
-        raise ValueError(f"no CSV rows found for {target}")
+        raise ValueError(
+            f"no CSV rows found for {target}; if the CSV uses capture_id=-1, "
+            "pass --include-noncapture"
+        )
 
     def values(columns: tuple[str, ...]) -> np.ndarray:
         try:
@@ -119,6 +135,7 @@ def _load_rows(
     return {
         "time_s": times,
         "capture_id": ids,
+        "auto_included_noncapture": auto_included_noncapture,
         "rotation_base_sensor": rotations,
         "raw_force_n": values(RAW_FORCE_COLUMNS),
         "raw_torque_nm": values(RAW_TORQUE_COLUMNS),
@@ -296,6 +313,11 @@ def main() -> int:
         capture_id=args.capture_id,
         include_noncapture=args.include_noncapture,
     )
+    if data.get("auto_included_noncapture"):
+        print(
+            "[plot] no capture_id>=0 rows found; automatically using all rows "
+            "(same effect as --include-noncapture)"
+        )
     fit, warnings = _load_payload_fit(identified_path)
     force_compensated, torque_compensated = _compensate(data, fit)
     for warning in warnings:

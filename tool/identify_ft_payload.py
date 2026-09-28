@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Identify payload mass, center of mass and F/T bias from static CSV data.
 
-The input is produced by collect_ft_gravity_data.py.  The model uses the raw
-sensor-frame wrench at static poses:
+The input is produced by collect_ft_gravity_data.py.  By default every CSV row
+is treated as one quasi-static sample, which is convenient for slow motion
+where the collector's still-window detection did not mark accepted captures.
+Pass ``--static-poses`` to restore the capture_id window segmentation.  The
+model uses the raw sensor-frame wrench at static poses:
 
     f_s = R_bs.T @ h_b + b_f
     tau_s = r_sc x (R_bs.T @ h_b) + b_tau
@@ -67,56 +70,23 @@ def _project_rotation(matrix: np.ndarray) -> np.ndarray:
     return rotation
 
 
-def load_static_poses(path: Path, min_samples: int) -> tuple[list[StaticPose], dict[str, np.ndarray]]:
-    groups: dict[int, list[dict[str, str]]] = {}
-    transform_rows: list[dict[str, str]] = []
+def _read_csv_rows(path: Path) -> tuple[list[dict[str, str]], dict[str, np.ndarray]]:
+    """Read all rows and the optional sensor-to-tool metadata."""
+
     with path.open(newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         required = {"capture_id", *FORCE_COLUMNS, *TORQUE_COLUMNS, *ROTATION_COLUMNS}
         missing = required.difference(reader.fieldnames or ())
         if missing:
             raise ValueError(f"CSV is missing columns: {', '.join(sorted(missing))}")
-        for row in reader:
-            capture_id = int(row["capture_id"])
-            if capture_id < 0:
-                continue
-            groups.setdefault(capture_id, []).append(row)
-            transform_rows.append(row)
-
-    poses: list[StaticPose] = []
-    for capture_id in sorted(groups):
-        rows = groups[capture_id]
-        if len(rows) < min_samples:
-            print(
-                f"[identify] skip capture {capture_id}: {len(rows)} samples "
-                f"(< {min_samples})"
-            )
-            continue
-        rotations = np.array([
-            [_float(row, name) for name in ROTATION_COLUMNS] for row in rows
-        ]).reshape(-1, 3, 3)
-        forces = np.array([
-            [_float(row, name) for name in FORCE_COLUMNS] for row in rows
-        ])
-        torques = np.array([
-            [_float(row, name) for name in TORQUE_COLUMNS] for row in rows
-        ])
-        poses.append(
-            StaticPose(
-                capture_id=capture_id,
-                samples=len(rows),
-                rotation_base_sensor=_project_rotation(np.mean(rotations, axis=0)),
-                force_sensor_n=np.median(forces, axis=0),
-                torque_sensor_nm=np.median(torques, axis=0),
-            )
-        )
+        rows = list(reader)
 
     transforms: dict[str, np.ndarray] = {}
-    if transform_rows and all(
-        f"r_sensor_tool_{row}{col}" in transform_rows[0]
+    if rows and all(
+        f"r_sensor_tool_{row}{col}" in rows[0]
         for row in range(3) for col in range(3)
     ):
-        first = transform_rows[0]
+        first = rows[0]
         transforms["rotation_sensor_to_tool"] = _project_rotation(np.array([
             _float(first, f"r_sensor_tool_{row}{col}")
             for row in range(3) for col in range(3)
@@ -124,6 +94,80 @@ def load_static_poses(path: Path, min_samples: int) -> tuple[list[StaticPose], d
         arm_names = ("tool_to_sensor_x_m", "tool_to_sensor_y_m", "tool_to_sensor_z_m")
         if all(name in first for name in arm_names):
             transforms["tool_to_sensor_m"] = np.array([_float(first, name) for name in arm_names])
+    return rows, transforms
+
+
+def load_static_poses(path: Path, min_samples: int) -> tuple[list[StaticPose], dict[str, np.ndarray]]:
+    """Use the collector's capture_id segmentation (legacy behavior)."""
+
+    rows, transforms = _read_csv_rows(path)
+    groups: dict[int, list[dict[str, str]]] = {}
+    for row in rows:
+        capture_id = int(row["capture_id"])
+        if capture_id < 0:
+            continue
+        groups.setdefault(capture_id, []).append(row)
+
+    poses: list[StaticPose] = []
+    for capture_id in sorted(groups):
+        group = groups[capture_id]
+        if len(group) < min_samples:
+            print(
+                f"[identify] skip capture {capture_id}: {len(group)} samples "
+                f"(< {min_samples})"
+            )
+            continue
+        rotations = np.array([
+            [_float(row, name) for name in ROTATION_COLUMNS] for row in group
+        ]).reshape(-1, 3, 3)
+        forces = np.array([
+            [_float(row, name) for name in FORCE_COLUMNS] for row in group
+        ])
+        torques = np.array([
+            [_float(row, name) for name in TORQUE_COLUMNS] for row in group
+        ])
+        poses.append(
+            StaticPose(
+                capture_id=capture_id,
+                samples=len(group),
+                rotation_base_sensor=_project_rotation(np.mean(rotations, axis=0)),
+                force_sensor_n=np.median(forces, axis=0),
+                torque_sensor_nm=np.median(torques, axis=0),
+            )
+        )
+    return poses, transforms
+
+
+def load_all_rows(path: Path, min_samples: int) -> tuple[list[StaticPose], dict[str, np.ndarray]]:
+    """Treat every CSV row as one static pose.
+
+    The collector normally marks accepted still windows with a non-negative
+    ``capture_id``.  For slow, quasi-static motions the operator may prefer to
+    ignore that segmentation entirely; every row then contributes directly to
+    the gravity fit instead of being collapsed into one median pose per window.
+    """
+
+    rows, transforms = _read_csv_rows(path)
+    if len(rows) < min_samples:
+        raise ValueError(
+            f"only {len(rows)} CSV rows available; at least {min_samples} are required"
+        )
+    poses = [
+        StaticPose(
+            capture_id=int(row["capture_id"]),
+            samples=1,
+            rotation_base_sensor=_project_rotation(np.array([
+                _float(row, name) for name in ROTATION_COLUMNS
+            ]).reshape(3, 3)),
+            force_sensor_n=np.array([
+                _float(row, name) for name in FORCE_COLUMNS
+            ]),
+            torque_sensor_nm=np.array([
+                _float(row, name) for name in TORQUE_COLUMNS
+            ]),
+        )
+        for row in rows
+    ]
     return poses, transforms
 
 
@@ -269,7 +313,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--overwrite", action="store_true",
                         help="replace an existing result JSON")
     parser.add_argument("--min-samples", type=int, default=50,
-                        help="minimum rows required for each capture")
+                        help=("minimum accepted rows. In default all-row mode this is the "
+                              "total row count; with --static-poses it is the minimum rows "
+                              "per capture window (default: 50)"))
+    parser.add_argument("--static-poses", action="store_true",
+                        help=("use the collector capture_id segmentation and median each "
+                              "accepted static window. By default every CSV row is used "
+                              "directly as one quasi-static sample."))
     parser.add_argument("--gravity", type=float, default=9.80665)
     parser.add_argument("--huber-delta", type=float, default=2.5)
     parser.add_argument("--max-com-m", type=float, default=0.5,
@@ -324,10 +374,16 @@ def main() -> None:
         else csv_path.with_name(f"{csv_path.stem}_identified.json")
     )
     try:
-        poses, transforms = load_static_poses(csv_path, args.min_samples)
+        if args.static_poses:
+            poses, transforms = load_static_poses(csv_path, args.min_samples)
+            pose_source = "static_capture_windows"
+        else:
+            poses, transforms = load_all_rows(csv_path, args.min_samples)
+            pose_source = "all_csv_rows"
         result = identify_payload(
             poses, gravity_m_s2=args.gravity, huber_delta=args.huber_delta
         )
+        result["pose_source"] = pose_source
     except (OSError, ValueError) as exc:
         raise SystemExit(f"[identify] FAILED: {exc}") from exc
 
@@ -353,7 +409,10 @@ def main() -> None:
         )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"[identify] poses: {result['pose_count']} ({result['sample_count']} samples)")
+    print(
+        f"[identify] source: {result['pose_source']}  "
+        f"poses: {result['pose_count']} ({result['sample_count']} samples)"
+    )
     print(
         f"[identify] mass: {result['mass_kg']:.6f} kg (|h| = "
         f"{result['mass_kg'] * result['gravity_m_s2']:.4f} N)"

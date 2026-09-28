@@ -150,6 +150,13 @@ R/F 始终沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出。初始姿态�
 需要 W/S/A/D 和姿态旋转相对末端 `tool0` 控制时加 `--command-frame tool`，
 此时 R/F 仍然沿 `tool0` +Z/−Z，不会退回默认的 +X/−X。
 
+默认会读取 `tool/ft_gravity_samples_identified.json`，在线扣除辨识出的
+传感器零偏、末端负载重力和质心力矩；可用 `--gravity-json <file>` 指定其他
+辨识结果，或用 `--no-gravity-compensation` 关闭。加 `--tare-compensated`
+可以在启动时把当前**重力补偿后的六维力**作为零点，后续都减去该残余偏置。
+默认同时打开非阻塞的六维力曲线窗口；不需要时加 `--no-plot`，
+`--plot-wrench` 可显式保持打开。
+
 运行后会打开一个名为 `JAKA keyboard servo` 的 GLFW 窗口；键盘按键必须在
 该窗口内输入，不能在启动脚本的终端里按。终端里出现的 `s`、`w` 等字符
 只表示终端获得了焦点，不会传给 JAKA。点击该窗口后再按住按键即可。
