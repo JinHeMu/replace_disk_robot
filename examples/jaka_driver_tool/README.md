@@ -29,6 +29,7 @@ src/replace_disk_robot/adapters/jaka/jaka_driver/x86_64-linux-gnu/
 | `jaka_ft_test.py` | 只读采集 EDG 力/力矩，可输出 CSV |
 | `jaka_edg_servo.py` | 125 Hz EDG 关节 servo，默认保持当前位置，可选正弦测试 |
 | `jaka_keyboard_servo.py` | 实机键盘笛卡尔 servo；R/F 始终沿当前 tool0 +Z/−Z 插入/退出，默认 base 模式下 W/S/A/D 等按 `jaka_base_link`；初始目标为启动时实测姿态 |
+| `jaka_keyboard_servo_config.yaml` | 实机键盘参数文件；脚本默认自动读取，命令行参数优先 |
 
 本地接口对应关系：
 
@@ -145,6 +146,10 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py \
     --max-torque-nm 2
 ```
 
+实机键盘脚本默认读取同目录的 `jaka_keyboard_servo_config.yaml`。速度、力限、死区、
+重力补偿和导纳参数都可以直接改这个 JSON；命令行显式传入的参数会覆盖配置文件。
+使用其他文件时加 `--config <file.yaml>`。
+
 默认按 `jaka_base_link` 控制：W/S/A/D 和 Q/E/方向键使用 base 轴，
 R/F 始终沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出。初始姿态直接读取启动时的实测关节角。
 需要 W/S/A/D 和姿态旋转相对末端 `tool0` 控制时加 `--command-frame tool`，
@@ -234,6 +239,14 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
 
 #### 5.5 第三步：打开旋转柔顺
 
+如果只想关闭某个轴的导纳，在 `--admittance-axes` 之后再加 `--adm-disable-axes`。
+例如关闭 Z 轴竖直导纳、保留 X/Y 平移：
+
+```bash
+python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
+  --adm-disable-axes z
+```
+
 平移验证通过后加 `--admittance-axes all`，六个轴都参与导纳，此时 `--adm-max-offset-deg`
 开始起作用：
 
@@ -249,12 +262,14 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
 | --- | --- | --- |
 | `--admittance` | 关 | 开启导纳；不开启时行为与原来完全一致 |
 | `--admittance-axes` | `translation` | `translation` 只开平移，`all` 六轴全开 |
+| `--adm-disable-axes` | 空 | 在 `--admittance-axes` 基础上禁用单轴，例如 `z` 关闭竖直导纳 |
 | `--adm-mass` / `--adm-damping` / `--adm-stiffness` | 2/60/300（平移） | 各六个分量：kg、N·s/m、N/m；后三个是旋转的 kg·m²、N·m·s/rad、N·m/rad |
 | `--adm-max-velocity` | 0.05 m/s、0.17 rad/s | 六个分量的速度上限 |
 | `--adm-max-offset-m` / `--adm-max-offset-deg` | 0.03 / 8 | 柔顺偏移相对名义位姿的钳位，实机必设 |
 | `--gravity-json` | `tool/ft_gravity_samples_identified.json` | 导纳输入所依赖的在线重力补偿辨识结果 |
 | `--no-gravity-compensation` | 关 | 关闭重力补偿；与 `--admittance` 同时使用会直接报错 |
 | `--tare-compensated` | 关 | 把当前补偿后残差作为零点，去掉残余偏置 |
+| `--deadband-force` / `--deadband-torque` | 0 / 0 | 补偿后力/力矩死区；例如 `1.0` N、`0.5` N·m |
 
 #### 5.7 安全要点与常见现象
 

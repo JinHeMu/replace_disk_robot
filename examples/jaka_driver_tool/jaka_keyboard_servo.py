@@ -76,6 +76,10 @@ from replace_disk_robot.safety import ForceLimitGuard
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CONFIG_PATH = (
+    PROJECT_ROOT / "examples" / "jaka_driver_tool" /
+    "jaka_keyboard_servo_config.yaml"
+)
 
 
 _KEY_TO_NAME = {
@@ -107,8 +111,14 @@ _RECOVERABLE_FAULTS = {
 _FORCE_RESUME_RATIO = 0.8
 
 
-def _parse_args() -> argparse.Namespace:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG_PATH,
+        help=f"YAML parameter file (default: {DEFAULT_CONFIG_PATH})",
+    )
     add_network_args(parser)
     parser.add_argument("--rate-hz", type=float, default=125.0,
                         help="EDG servo command rate; 125 Hz sends step_num=1")
@@ -181,6 +191,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--admittance-axes", choices=("translation", "all"),
                         default="translation",
                         help="wrench axes used by admittance (default: translation only)")
+    parser.add_argument(
+        "--adm-disable-axes",
+        nargs="*",
+        choices=("x", "y", "z", "rx", "ry", "rz"),
+        default=(),
+        metavar="AXIS",
+        help=("disable individual admittance axes after --admittance-axes, e.g. "
+              "'--adm-disable-axes z' disables vertical compliance"),
+    )
     parser.add_argument("--adm-mass", type=float, nargs=6,
                         default=(2.0, 2.0, 2.0, 0.02, 0.02, 0.02),
                         help="admittance mass: kg (translation) then kg*m^2 (rotation)")
@@ -197,7 +216,118 @@ def _parse_args() -> argparse.Namespace:
                         help="maximum compliant translation offset from the nominal pose")
     parser.add_argument("--adm-max-offset-deg", type=float, default=8.0,
                         help="maximum compliant rotation offset from the nominal pose")
-    return parser.parse_args()
+    return parser
+
+
+def _load_config(
+    path: Path,
+    parser: argparse.ArgumentParser,
+) -> dict[str, object]:
+    """Read a YAML parameter file and return argparse-compatible defaults.
+
+    JSON files are still accepted for compatibility.  YAML comments are
+    ignored by the parser, so this is the preferred format for annotated
+    user-facing configuration.
+    """
+
+    if not path.is_file():
+        return {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise SystemExit(f"cannot read config {path}: {exc}") from exc
+
+    suffix = path.suffix.lower()
+    try:
+        if suffix in (".yaml", ".yml"):
+            import yaml
+            raw = yaml.safe_load(text)
+        elif suffix == ".json":
+            raw = json.loads(text)
+        else:
+            # Unknown extension: try YAML first, then JSON.
+            try:
+                import yaml
+                raw = yaml.safe_load(text)
+            except Exception:
+                raw = json.loads(text)
+    except ImportError as exc:
+        raise SystemExit(
+            "YAML config requires PyYAML. Install with: pip install pyyaml"
+        ) from exc
+    except Exception as exc:
+        raise SystemExit(f"cannot parse config {path}: {exc}") from exc
+
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise SystemExit(f"config root must be a mapping: {path}")
+
+    allowed = {
+        action.dest for action in parser._actions
+        if action.dest not in ("help", "config")
+    }
+    config: dict[str, object] = {}
+    for key, value in raw.items():
+        if key.startswith("_"):
+            continue
+        if key not in allowed:
+            raise SystemExit(
+                f"unknown config key {key!r} in {path}; "
+                f"allowed keys: {', '.join(sorted(allowed))}"
+            )
+        if key == "gravity_json" and isinstance(value, str):
+            candidate = Path(value).expanduser()
+            if not candidate.is_absolute():
+                candidate = PROJECT_ROOT / candidate
+            value = candidate
+        elif key == "adm_disable_axes":
+            if not isinstance(value, list):
+                raise SystemExit("config adm_disable_axes must be a JSON array")
+            value = tuple(value)
+        config[key] = value
+    return config
+
+
+def _validate_config_args(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Validate values supplied by a config file because set_defaults skips choices."""
+
+    if args.command_frame not in ("base", "tool"):
+        parser.error("command_frame must be 'base' or 'tool'")
+    if args.admittance_axes not in ("translation", "all"):
+        parser.error("admittance_axes must be 'translation' or 'all'")
+    valid_axes = {"x", "y", "z", "rx", "ry", "rz"}
+    invalid_axes = [axis for axis in args.adm_disable_axes if axis not in valid_axes]
+    if invalid_axes:
+        parser.error(f"invalid adm_disable_axes: {invalid_axes}")
+    for name in ("adm_mass", "adm_damping", "adm_stiffness", "adm_max_velocity"):
+        value = getattr(args, name)
+        if len(value) != 6:
+            parser.error(f"config {name} must contain six numbers")
+
+
+def _parse_args() -> argparse.Namespace:
+    """Parse CLI options, with JSON config values as defaults.
+
+    Command-line options explicitly supplied by the user override the JSON
+    config.  This keeps the config file convenient for long admittance setups
+    while still allowing one-off overrides.
+    """
+
+    parser = _build_parser()
+    preliminary, _unknown = parser.parse_known_args()
+    config_path = Path(preliminary.config).expanduser().resolve()
+    if not config_path.is_file() and config_path != DEFAULT_CONFIG_PATH.resolve():
+        raise SystemExit(f"config file not found: {config_path}")
+    config = _load_config(config_path, parser)
+    if config:
+        parser.set_defaults(**config)
+    args = parser.parse_args()
+    _validate_config_args(args, parser)
+    return args
 
 
 def _validate_admittance_args(args: argparse.Namespace) -> None:
@@ -354,11 +484,16 @@ class JakaKeyboardServo:
                 max_velocity=args.adm_max_velocity,
                 max_dt_s=max(0.01, 4.0 / args.rate_hz),
             ))
+            enabled_axes = np.array(
+                [True, True, True, False, False, False]
+                if args.admittance_axes == "translation" else [True] * 6,
+                dtype=bool,
+            )
+            axis_index = {"x": 0, "y": 1, "z": 2, "rx": 3, "ry": 4, "rz": 5}
+            for axis in getattr(args, "adm_disable_axes", ()):
+                enabled_axes[axis_index[axis]] = False
             self.motion_config = MotionReferenceConfig(
-                enabled_axes=(
-                    [True, True, True, False, False, False]
-                    if args.admittance_axes == "translation" else [True] * 6
-                ),
+                enabled_axes=enabled_axes,
                 max_dt_s=max(0.01, 4.0 / args.rate_hz),
             )
 
