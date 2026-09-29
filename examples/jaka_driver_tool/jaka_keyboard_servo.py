@@ -54,15 +54,22 @@ from replace_disk_robot.contact import (
     WrenchProcessorConfig,
 )
 from replace_disk_robot.control import (
+    AdmittanceConfig,
+    AdmittanceController,
     CartesianJog,
     CartesianServo,
     KeyControl,
+    KeyboardAdmittanceController,
+    MotionReferenceConfig,
     ServoConfig,
 )
 from replace_disk_robot.core import JointState, Pose, Wrench
 from replace_disk_robot.core.rotation import (
+    multiply as quaternion_multiply,
     quaternion_from_rotation_matrix,
+    quaternion_from_rotation_vector,
     rotation_matrix,
+    rotation_vector_from_matrix,
 )
 from replace_disk_robot.kinematics.jaka import JakaKinematics
 from replace_disk_robot.safety import ForceLimitGuard
@@ -162,7 +169,57 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="disable payload gravity compensation and use the adapter tare only",
     )
+    parser.add_argument(
+        "--admittance",
+        action="store_true",
+        help=("keyboard nominal pose + six-axis admittance compliance. Needs the "
+              "gravity compensation above, otherwise the payload's own weight would "
+              "push the compliant offset away in every pose. Consider raising "
+              "--max-torque-nm: the 0.4 m tool arm turns a few newtons at the tool "
+              "tip into more than the default 2 N*m about tool0"),
+    )
+    parser.add_argument("--admittance-axes", choices=("translation", "all"),
+                        default="translation",
+                        help="wrench axes used by admittance (default: translation only)")
+    parser.add_argument("--adm-mass", type=float, nargs=6,
+                        default=(2.0, 2.0, 2.0, 0.02, 0.02, 0.02),
+                        help="admittance mass: kg (translation) then kg*m^2 (rotation)")
+    parser.add_argument("--adm-damping", type=float, nargs=6,
+                        default=(60.0, 60.0, 60.0, 1.5, 1.5, 1.5),
+                        help="admittance damping: N*s/m then N*m*s/rad")
+    parser.add_argument("--adm-stiffness", type=float, nargs=6,
+                        default=(300.0, 300.0, 300.0, 30.0, 30.0, 30.0),
+                        help="admittance stiffness: N/m then N*m/rad")
+    parser.add_argument("--adm-max-velocity", type=float, nargs=6,
+                        default=(0.05, 0.05, 0.05, 0.17, 0.17, 0.17),
+                        help="admittance velocity limit: m/s then rad/s")
+    parser.add_argument("--adm-max-offset-m", type=float, default=0.03,
+                        help="maximum compliant translation offset from the nominal pose")
+    parser.add_argument("--adm-max-offset-deg", type=float, default=8.0,
+                        help="maximum compliant rotation offset from the nominal pose")
     return parser.parse_args()
+
+
+def _validate_admittance_args(args: argparse.Namespace) -> None:
+    """Reject admittance configurations that cannot be safe on hardware.
+
+    Called from ``main`` before any network access, so a misconfigured
+    compliance run never reaches the robot.  ``--admittance`` deliberately
+    requires payload gravity compensation: without it the tool's own weight
+    feeds the admittance integrator and the offset drifts away in every pose.
+    """
+
+    if not getattr(args, "admittance", False):
+        return
+    gravity_json = getattr(args, "gravity_json", None)
+    if not gravity_json or getattr(args, "no_gravity_compensation", False):
+        raise SystemExit(
+            "--admittance requires payload gravity compensation: drop "
+            "--no-gravity-compensation and pass --gravity-json "
+            "<identified.json> from tool/identify_ft_payload.py"
+        )
+    if args.adm_max_offset_m <= 0 or args.adm_max_offset_deg <= 0:
+        raise SystemExit("--adm-max-offset-m and --adm-max-offset-deg must be positive")
 
 
 def _ft_transforms(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
@@ -282,6 +339,29 @@ class JakaKeyboardServo:
         )
         self.sample_callback = sample_callback
 
+        # Compliant stage between the keyboard and the pose servo.  The wrench
+        # it consumes is _read_wrench(), i.e. already gravity-compensated.
+        self.admittance_enabled = bool(args.admittance)
+        self.motion: KeyboardAdmittanceController | None = None
+        self.last_external_wrench: Wrench | None = None
+        self.last_corrected_pose: Pose | None = None
+        if self.admittance_enabled:
+            self.admittance = AdmittanceController(AdmittanceConfig(
+                frame_id=self.tool_frame,
+                mass=args.adm_mass,
+                damping=args.adm_damping,
+                stiffness=args.adm_stiffness,
+                max_velocity=args.adm_max_velocity,
+                max_dt_s=max(0.01, 4.0 / args.rate_hz),
+            ))
+            self.motion_config = MotionReferenceConfig(
+                enabled_axes=(
+                    [True, True, True, False, False, False]
+                    if args.admittance_axes == "translation" else [True] * 6
+                ),
+                max_dt_s=max(0.01, 4.0 / args.rate_hz),
+            )
+
         self.last_wrench = None
         self.servo_enabled = False
         self.status = "initializing"
@@ -323,6 +403,14 @@ class JakaKeyboardServo:
                 print(f"[keyboard] FT bias={fmt_array(bias, 4)}")
 
         self.last_wrench = self._read_wrench(state0, q0)
+        if self.admittance_enabled:
+            print(
+                "[keyboard] admittance: axes="
+                f"{'translation' if self.args.admittance_axes == 'translation' else 'all'}, "
+                f"offset limit={self.args.adm_max_offset_m * 1000.0:g} mm / "
+                f"{self.args.adm_max_offset_deg:g} deg"
+            )
+            self._print_compliance_seed(q0, state0)
 
         if self.args.dry_run:
             self.servo.reset(q0)
@@ -340,6 +428,7 @@ class JakaKeyboardServo:
         q_servo = JointState(self.arm.joint_names, state_servo.joint_position_rad)
         self.servo.reset(q_servo)
         self.last_wrench = self._read_wrench(state_servo, q_servo)
+        self._print_compliance_seed(q_servo, state_servo)
         self.status = "holding"
 
     def _configure_gravity_compensation(self) -> None:
@@ -484,6 +573,113 @@ class JakaKeyboardServo:
             return self._gravity_compensated_wrench(state, measured)
         return self.ft.read_wrench_from(state)
 
+    # ------------------------------------------------------------------
+    # Admittance compliance
+    # ------------------------------------------------------------------
+    def _print_compliance_seed(self, measured: JointState, state) -> None:
+        """Print the external wrench and offset at a freshly seeded reference."""
+
+        if not self.admittance_enabled:
+            return
+        self._reset_compliance(measured)
+        try:
+            wrench = self._read_wrench(state, measured)
+        except (ValueError, RuntimeError):
+            return
+        self.last_wrench = wrench
+        self.last_external_wrench = wrench
+        print(f"[keyboard] admittance reference: {self.admittance_text()}")
+
+    def _reset_compliance(self, measured: JointState | None) -> None:
+        """Re-seed nominal/admittance state at the measured pose.
+
+        Called on start, resume and every stop so that a fault recovery never
+        replays a stale compliant offset.
+        """
+
+        if not self.admittance_enabled:
+            return
+        if measured is None:
+            try:
+                measured = self.arm.read_joint_state()
+            except Exception:  # noqa: BLE001 - keep the previous reference
+                return
+        pose = self.kinematics.forward(measured)
+        if self.motion is None:
+            self.motion = KeyboardAdmittanceController(
+                self.admittance, pose, self.motion_config, tcp_frame_id=self.tool_frame,
+            )
+        else:
+            self.motion.reset(pose)
+        if self.wrench_processor is not None:
+            self.wrench_processor.reset()
+        self.last_external_wrench = None
+        self.last_corrected_pose = pose
+
+    def _clamp_offset(self, corrected: Pose, nominal: Pose) -> Pose:
+        """Limit the compliant displacement relative to the nominal pose.
+
+        ``AdmittanceController`` intentionally has no offset clamp; on hardware
+        the caller owns that limit.
+        """
+
+        delta = np.asarray(corrected.position_m, dtype=float) - np.asarray(
+            nominal.position_m, dtype=float
+        )
+        distance = float(np.linalg.norm(delta))
+        limit_m = float(self.args.adm_max_offset_m)
+        position = (
+            np.asarray(nominal.position_m, dtype=float) + delta * (limit_m / distance)
+            if distance > limit_m else np.asarray(corrected.position_m, dtype=float)
+        )
+
+        relative = (
+            rotation_matrix(corrected.quaternion_wxyz)
+            @ rotation_matrix(nominal.quaternion_wxyz).T
+        )
+        rotation_vector = rotation_vector_from_matrix(relative)
+        angle = float(np.linalg.norm(rotation_vector))
+        limit_rad = float(np.deg2rad(self.args.adm_max_offset_deg))
+        if angle > limit_rad:
+            # Scale the *relative* rotation and apply it to the nominal pose;
+            # the corrected quaternion is already nominal-composed.
+            delta_quaternion = quaternion_from_rotation_vector(
+                rotation_vector * (limit_rad / angle)
+            )
+            quaternion = quaternion_multiply(delta_quaternion, np.asarray(
+                nominal.quaternion_wxyz, dtype=float
+            ))
+            quaternion = quaternion / np.linalg.norm(quaternion)
+        else:
+            quaternion = np.asarray(corrected.quaternion_wxyz, dtype=float)
+        return Pose(nominal.frame_id, position, quaternion)
+
+    def _update_compliance(self, jog, wrench, tcp_pose, dt_s) -> Pose:
+        """One keyboard-nominal + admittance step; returns the clamped pose."""
+
+        if self.motion is None:
+            raise RuntimeError("admittance is enabled but the motion reference is not seeded")
+        corrected = self.motion.update(jog, wrench, tcp_pose, dt_s)
+        self.last_corrected_pose = self._clamp_offset(corrected, self.motion.nominal_pose)
+        return self.last_corrected_pose
+
+    def admittance_text(self) -> str:
+        """Compact admittance state for the status line and window title."""
+
+        if not self.admittance_enabled:
+            return ""
+        force = 0.0
+        if self.last_external_wrench is not None:
+            force = float(np.linalg.norm(self.last_external_wrench.force_n))
+        offset = self.motion.state().offset if self.motion is not None else np.zeros(6)
+        axes = self.motion.enabled_axes if self.motion is not None else np.zeros(6, dtype=bool)
+        return (
+            f"|Fext|={force:5.2f}N "
+            f"dx={np.linalg.norm(offset[:3]) * 1000.0:4.1f}mm "
+            f"dth={np.rad2deg(np.linalg.norm(offset[3:])):4.1f}deg "
+            f"axes={''.join('1' if value else '0' for value in axes)}"
+        )
+
     def shutdown(self) -> None:
         if self._closed:
             return
@@ -501,7 +697,7 @@ class JakaKeyboardServo:
     # ------------------------------------------------------------------
     # Safety / command helpers
     # ------------------------------------------------------------------
-    def _jog_to_servo(self) -> CartesianJog:
+    def _jog_to_servo(self, reference: JointState | Pose | None = None) -> CartesianJog:
         """Map keyboard keys to Servo's base-linear/intrinsic-TCP convention.
 
         * tool mode: W/S/A/D and rotations use the current tool0 frame.  R/F
@@ -510,11 +706,20 @@ class JakaKeyboardServo:
           to platform left/right for the -90-degree arm mounting; R/F move
           along current tool0 +Z/-Z.  Base-axis rotations are converted to
           intrinsic TCP angular velocity.
+
+        ``reference`` overrides the pose the keys are interpreted in; the
+        admittance path passes the *nominal* pose so that compliant offsets do
+        not feed back into the keyboard frame.
         """
-        target = self.servo.target
-        if target is None:
-            target = self.arm.read_joint_state()
-        pose = self.kinematics.forward(target)
+        if reference is None:
+            target = self.servo.target
+            if target is None:
+                target = self.arm.read_joint_state()
+            pose = self.kinematics.forward(target)
+        elif isinstance(reference, Pose):
+            pose = reference
+        else:
+            pose = self.kinematics.forward(reference)
         base_from_tool = rotation_matrix(pose.quaternion_wxyz)
 
         if self.command_frame == self.tool_frame:
@@ -552,6 +757,7 @@ class JakaKeyboardServo:
                     self.arm.command_joint_positions(measured)
                 except Exception as exc:  # noqa: BLE001 - best-effort hold
                     print(f"[keyboard] hold-command warning: {exc}", file=sys.stderr)
+        self._reset_compliance(measured)
         self.status = reason
 
     def resume(self) -> bool:
@@ -653,13 +859,33 @@ class JakaKeyboardServo:
             self.stop("loop_timeout", measured)
             return
 
-        jog = self._jog_to_servo()
+        jog = self._jog_to_servo(
+            self.motion.nominal_pose if self.motion is not None else None
+        )
         if self.args.dry_run:
+            # Still integrate the compliance chain so the printed offset and
+            # the sign of the external force can be verified before enabling
+            # Servo; no command is submitted in dry-run.
+            if self.admittance_enabled and self.servo.fault is None:
+                self._update_compliance(
+                    jog, wrench, self.kinematics.forward(measured), dt_s
+                )
+                self.last_external_wrench = wrench
             self.status = "dry_run"
             self._print_line(elapsed_s, measured, measured.position_rad, wrench)
             return
 
-        self.servo.submit(jog, elapsed_s)
+        if self.admittance_enabled:
+            self.last_external_wrench = wrench
+            # A latched fault must not let the integrator wind up; the offset is
+            # re-seeded from the measured pose on resume.
+            if self.servo.fault is None:
+                corrected = self._update_compliance(
+                    jog, wrench, self.kinematics.forward(measured), dt_s
+                )
+                self.servo.submit_pose(corrected, elapsed_s)
+        else:
+            self.servo.submit(jog, elapsed_s)
         try:
             target = self.servo.update(measured, dt_s, elapsed_s)
         except (ValueError, RuntimeError) as exc:
@@ -689,12 +915,14 @@ class JakaKeyboardServo:
         self._next_print += 0.5
         force = float(np.linalg.norm(wrench.force_n))
         torque = float(np.linalg.norm(wrench.torque_nm))
+        admittance = self.admittance_text()
         print(
             f"[keyboard] t={elapsed_s:6.3f}s "
             f"q={fmt_array(measured.position_rad, 4)} "
             f"cmd={fmt_array(command_q, 4)} "
             f"|F|={force:6.3f}N |T|={torque:6.3f}Nm "
-            f"{self._status_text()}"
+            + (f"{admittance} " if admittance else "")
+            + f"{self._status_text()}"
         )
 
 
@@ -735,9 +963,12 @@ def _window_title(app: JakaKeyboardServo) -> str:
     if app.last_wrench is not None:
         force = float(np.linalg.norm(app.last_wrench.force_n))
         torque = float(np.linalg.norm(app.last_wrench.torque_nm))
+    admittance = app.admittance_text()
     return (
         f"JAKA keyboard servo | {app.command_frame} | "
-        f"F={force:.2f} N | T={torque:.2f} Nm | {app._status_text()}"
+        f"F={force:.2f} N | T={torque:.2f} Nm | "
+        + (f"{admittance} | " if admittance else "")
+        + f"{app._status_text()}"
     )
 
 
@@ -790,6 +1021,11 @@ def _run_window(app: JakaKeyboardServo) -> None:
             "[keyboard] a small window named 'JAKA keyboard servo' has opened.\n"
             "[keyboard] Click that window, then hold keys there. "
             "Space stop, Enter resume, Esc exit."
+            + (
+                "\n[keyboard] admittance is on: keys move the nominal pose, the "
+                "gravity-compensated external wrench moves the compliant offset."
+                if app.admittance_enabled else ""
+            )
         )
         loop = RateLoop(app.args.rate_hz)
         last_now = None
@@ -845,6 +1081,7 @@ def main() -> None:
         raise SystemExit("--seconds must be non-negative")
     if args.headless and args.seconds <= 0:
         raise SystemExit("--headless requires --seconds > 0")
+    _validate_admittance_args(args)
 
     client = make_client(args)
     app = None
