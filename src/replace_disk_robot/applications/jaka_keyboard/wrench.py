@@ -15,10 +15,26 @@ from replace_disk_robot.core.rotation import quaternion_from_rotation_matrix, ro
 from replace_disk_robot.contact.force_processing import external_wrench_at_tcp
 from .config import PROJECT_ROOT
 
+# ``tool0`` in the current JAKA URDF is rotated by pi around its own Z axis
+# relative to the tool frame used by the shared EDG adapter defaults. Re-express
+# both extrinsics in current tool0 coordinates without changing the physical
+# sensor pose.
+_TOOL0_FROM_PREVIOUS_TOOL = np.diag([-1.0, -1.0, 1.0])
+
+
+def default_tool0_ft_transforms() -> tuple[np.ndarray, np.ndarray]:
+    """Return the shared JAKA F/T defaults expressed in the current ``tool0``."""
+
+    return (
+        _TOOL0_FROM_PREVIOUS_TOOL @ DEFAULT_SENSOR_TO_TOOL_ROTATION,
+        _TOOL0_FROM_PREVIOUS_TOOL @ DEFAULT_TOOL_ARM_M,
+    )
+
+
 def _ft_transforms(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
     if args.identity_transform:
         return np.eye(3), np.zeros(3)
-    return DEFAULT_SENSOR_TO_TOOL_ROTATION, DEFAULT_TOOL_ARM_M
+    return default_tool0_ft_transforms()
 
 
 class WrenchPipeline:
@@ -40,8 +56,9 @@ class WrenchPipeline:
         # Online gravity compensation is configured in initialize() when a
         # payload identification JSON is available.
         self.sensor_frame_id = "tcp_fts_sensor"
+        default_rotation, _ = default_tool0_ft_transforms()
         self.sensor_to_tool_rotation = np.asarray(
-            DEFAULT_SENSOR_TO_TOOL_ROTATION if args.identity_transform else rotation,
+            default_rotation if args.identity_transform else rotation,
             dtype=float,
         ).copy()
         self.tool_to_sensor_m = np.asarray(
@@ -88,7 +105,7 @@ class WrenchPipeline:
 
         response = fit.get("sensor_to_tool_rotation")
         if response is None:
-            sensor_to_tool = np.asarray(DEFAULT_SENSOR_TO_TOOL_ROTATION, dtype=float)
+            sensor_to_tool, _ = default_tool0_ft_transforms()
         else:
             sensor_to_tool = np.asarray(response, dtype=float)
         if sensor_to_tool.shape != (3, 3) or not np.isfinite(sensor_to_tool).all():
@@ -96,7 +113,7 @@ class WrenchPipeline:
 
         response = fit.get("tool_to_sensor_m")
         if response is None:
-            tool_to_sensor = np.asarray(DEFAULT_TOOL_ARM_M, dtype=float)
+            _, tool_to_sensor = default_tool0_ft_transforms()
         else:
             tool_to_sensor = np.asarray(response, dtype=float)
         if tool_to_sensor.shape != (3,) or not np.isfinite(tool_to_sensor).all():

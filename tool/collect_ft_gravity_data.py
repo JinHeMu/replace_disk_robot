@@ -42,8 +42,6 @@ for search_path in (DRIVER_TOOL_DIR, SRC_DIR):
         sys.path.insert(0, str(search_path))
 
 from jaka_common import (  # noqa: E402
-    DEFAULT_SENSOR_TO_TOOL_ROTATION,
-    DEFAULT_TOOL_ARM_M,
     JakaError,
     RateLoop,
     add_network_args,
@@ -55,6 +53,9 @@ from replace_disk_robot.applications.jaka_keyboard.jaka_keyboard_servo import ( 
     JakaKeyboardServo,
     _KEY_TO_NAME,
     _window_title,
+)
+from replace_disk_robot.applications.jaka_keyboard.wrench import (  # noqa: E402
+    default_tool0_ft_transforms,
 )
 from replace_disk_robot.core.rotation import rotation_matrix  # noqa: E402
 
@@ -125,7 +126,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--deadband-torque", type=float, default=0.2)
     parser.add_argument("--identity-transform", action="store_true",
                         help="use identity sensor-to-tool rotation (diagnostics only)")
-    parser.set_defaults(headless=False, plot_wrench_enable=False)
+    # The collector reuses the keyboard-servo controller but deliberately
+    # leaves admittance off while recording raw gravity data.
+    parser.set_defaults(headless=False, plot_wrench_enable=False, admittance=False)
     return parser.parse_args()
 
 
@@ -299,16 +302,17 @@ class GravityDatasetWriter:
     def _build_row(self, elapsed_s, state, measured, wrench, app) -> dict[str, object]:
         pose = app.kinematics.forward(measured)
         r_base_tool = rotation_matrix(pose.quaternion_wxyz)
+        default_rotation, default_tool_arm = default_tool0_ft_transforms()
         r_sensor_tool = (
             np.eye(3)
             if self.args.identity_transform
-            else np.asarray(DEFAULT_SENSOR_TO_TOOL_ROTATION, dtype=float)
+            else default_rotation
         )
         r_base_sensor = r_base_tool @ r_sensor_tool
         tool_to_sensor = (
             np.zeros(3)
             if self.args.identity_transform
-            else np.asarray(DEFAULT_TOOL_ARM_M, dtype=float)
+            else default_tool_arm
         )
         row: dict[str, object] = {
             "time_s": f"{elapsed_s:.9f}",

@@ -40,8 +40,6 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from replace_disk_robot.adapters.jaka import (
-    DEFAULT_SENSOR_TO_TOOL_ROTATION,
-    DEFAULT_TOOL_ARM_M,
     JakaError,
     JakaRobotAdapter,
     JakaWristFTAdapter,
@@ -76,10 +74,14 @@ from replace_disk_robot.core.rotation import (
 )
 from replace_disk_robot.kinematics.jaka import JakaKinematics
 from replace_disk_robot.safety import ForceLimitGuard
+from replace_disk_robot.applications.jaka_keyboard.wrench import (
+    default_tool0_ft_transforms,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("jaka_keyboard_servo_config.yaml")
+DEFAULT_SENSOR_TO_TOOL_ROTATION, DEFAULT_TOOL_ARM_M = default_tool0_ft_transforms()
 
 
 _KEY_TO_NAME = {
@@ -356,7 +358,7 @@ def _validate_admittance_args(args: argparse.Namespace) -> None:
 def _ft_transforms(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
     if args.identity_transform:
         return np.eye(3), np.zeros(3)
-    return DEFAULT_SENSOR_TO_TOOL_ROTATION, DEFAULT_TOOL_ARM_M
+    return default_tool0_ft_transforms()
 
 
 def _base_translation_from_keys(

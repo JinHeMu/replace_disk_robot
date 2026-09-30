@@ -36,7 +36,7 @@ torque_sensor_mode: 1         # EDG 力矩传感器模式；必须输出未做�
 # ----------------------------------------------------------------------------
 tare_samples: 50              # 未开启重力补偿时，适配器 tare 的采样数
 tare_period_ms: 10.0          # 适配器 tare 的采样周期，单位 ms
-tare_enable: true            # true=开启适配器去皮；false=关闭（只影响非重力补偿路径）
+tare_enable: false            # true=开启适配器去皮；false=关闭（只影响非重力补偿路径）
 tare_compensated: false       # true=以当前“重力补偿后的六维力”为额外零点
 
 # ----------------------------------------------------------------------------
@@ -58,17 +58,17 @@ gravity_compensation_enable: true  # true=开启重力补偿；false=关闭，�
 # ----------------------------------------------------------------------------
 admittance: true             # true=开启导纳；开启时必须保持重力补偿开启
 admittance_axes: all  # translation=只开平移轴；all=六个轴全部参与
-adm_disable_axes: [z]         # 在 admittance_axes 基础上禁用单轴；顺序 [x,y,z,rx,ry,rz]，轴为 tool0 坐标系；[z] 表示关闭 Z 轴平移导纳
+adm_disable_axes: []         # 在 admittance_axes 基础上禁用单轴；顺序 [x,y,z,rx,ry,rz]，轴为 tool0 坐标系；[z] 表示关闭 Z 轴平移导纳
 
 # 导纳质量：顺序 [x,y,z,rx,ry,rz]，平移单位 kg，旋转单位 kg*m^2
-adm_mass: [2.0, 2.0, 2.0, 0.02, 0.02, 0.02]
+adm_mass: [20.0, 20.0, 20.0, 2.0, 2.0, 2.0]
 
 # 导纳阻尼：顺序 [x,y,z,rx,ry,rz]，平移单位 N*s/m，旋转单位 N*m*s/rad
 adm_damping: [300.0, 300.0, 300.0, 15, 15, 15]
 
 # 导纳刚度：顺序 [x,y,z,rx,ry,rz]，平移单位 N/m，旋转单位 N*m/rad
 # 设为 0 表示该轴没有回正弹簧；实机首次测试建议使用小的非零刚度。
-adm_stiffness: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+adm_stiffness: [30.0, 30.0, 30.0, 2.0, 2.0, 2.0]
 
 # 导纳速度上限：顺序 [x,y,z,rx,ry,rz]，平移单位 m/s，旋转单位 rad/s
 adm_max_velocity: [0.05, 0.05, 0.05, 0.17, 0.17, 0.17]
