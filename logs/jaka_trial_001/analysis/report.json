@@ -1,0 +1,38 @@
+{
+  "scope": "offline algebra/record integrity/reference tracking; no hardware acceptance",
+  "rows": 4595,
+  "checked_admittance_cycles": 4246,
+  "skipped_admittance_cycles": 349,
+  "malformed_lines": 0,
+  "missing_sequences_between_rows": 0,
+  "time_order_ok": true,
+  "sequence_order_ok": true,
+  "observation_error_cycles": 0,
+  "recording_complete": true,
+  "writer_summary": {
+    "accepted": 9205,
+    "written": 9205,
+    "dropped": 0,
+    "pending": 0,
+    "written_samples": 4595,
+    "observer_errors": 0,
+    "writer_error": null,
+    "writer_stopped": true,
+    "complete": true
+  },
+  "sample_count_matches_summary": true,
+  "max_discrete_residual": 1.734723475976807e-18,
+  "max_masked_input_error": 0.0,
+  "inconsistent_input_cycles": 0,
+  "discrete_equation_matches": true,
+  "velocity_clipped_cycles": 0,
+  "offset_clamped_cycles": 0,
+  "fault_cycles": 349,
+  "dt_ms": {
+    "median": 7.999847000064619,
+    "p95": 8.051793799950246,
+    "max": 9.109251000154472
+  },
+  "reference_tracking_rms_mm": 3.8397414733963027,
+  "reference_tracking_rms_deg": 0.2214543520509329
+}
