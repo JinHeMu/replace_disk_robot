@@ -263,7 +263,7 @@ python examples/jaka_driver_tool/jaka_ft_test.py \
 python examples/jaka_driver_tool/jaka_edg_servo.py --dry-run --seconds 5
 
 # 实机键盘 Servo 的 dry-run
-python examples/jaka_driver_tool/jaka_keyboard_servo.py --dry-run
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_node.py --dry-run
 
 # 关闭
 python examples/jaka_driver_tool/jaka_stop.py

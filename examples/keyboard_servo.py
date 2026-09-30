@@ -196,17 +196,14 @@ class ServoDemo:
             expected_rotation = self.data.site('drive_center').xmat.reshape(3,3)
             tolerance = 1e-7
         else:
-            # MJCF omits the massless URDF tool0 body.  Its fixed transform is
-            # 270 mm along tool0_and_camera_link +Z, with identical rotation.
+            # Read the explicit TCP body so the URDF tool0 fixed rotation is
+            # included without duplicating the model transform here.
             base = self.data.body('jaka_base_link')
-            tool = self.data.body('tool0_and_camera_link')
+            tool = self.data.body('tool0')
             world_rotation_base = base.xmat.reshape(3, 3)
             world_rotation_tool = tool.xmat.reshape(3, 3)
-            world_position_tool0 = (
-                tool.xpos + world_rotation_tool @ np.array([0.0, 0.0, 0.27])
-            )
             expected_position = world_rotation_base.T @ (
-                world_position_tool0 - base.xpos
+                tool.xpos - base.xpos
             )
             expected_rotation = world_rotation_base.T @ world_rotation_tool
             # The source URDF uses rounded RPY values while MJCF stores rounded

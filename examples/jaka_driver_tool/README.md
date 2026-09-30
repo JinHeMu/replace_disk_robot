@@ -28,8 +28,7 @@ src/replace_disk_robot/adapters/jaka/jaka_driver/x86_64-linux-gnu/
 | `jaka_stop.py` | 关闭 servo、关闭 EDG、下使能、下电、logout |
 | `jaka_ft_test.py` | 只读采集 EDG 力/力矩，可输出 CSV |
 | `jaka_edg_servo.py` | 125 Hz EDG 关节 servo，默认保持当前位置，可选正弦测试 |
-| `jaka_keyboard_servo.py` | 实机键盘笛卡尔 servo；R/F 始终沿当前 tool0 +Z/−Z 插入/退出，默认 base 模式下 W/S/A/D 等按 `jaka_base_link`；初始目标为启动时实测姿态 |
-| `jaka_keyboard_servo_config.yaml` | 实机键盘参数文件；脚本默认自动读取，命令行参数优先 |
+| [jaka_keyboard](../../src/replace_disk_robot/applications/jaka_keyboard/README.md) | 键盘控制入口与参数已移至 applications 功能包；使用指南见链接 |
 
 本地接口对应关系：
 
@@ -126,20 +125,20 @@ EDG `step_num=1`，即 8 ms 周期。
 先确认机器人已经由 `jaka_start.py` 上电使能，再用只读模式检查 EDG/F/T 和键盘：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py --dry-run
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py --dry-run
 ```
 
 没有显示服务时可用无界面只读模式：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py \
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py \
     --dry-run --headless --seconds 3
 ```
 
 真正进入伺服时先用很小的速度和力限：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py \
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py \
     --linear-speed 0.002 \
     --angular-speed-deg 1 \
     --max-force-n 5 \
@@ -157,10 +156,10 @@ R/F 始终沿当前 `tool0` +Z/−Z（蓝色轴）插入/退出。初始姿态�
 
 默认会读取 `tool/ft_gravity_samples_identified.json`，在线扣除辨识出的
 传感器零偏、末端负载重力和质心力矩；可用 `--gravity-json <file>` 指定其他
-辨识结果，或用 `--no-gravity-compensation` 关闭。加 `--tare-compensated`
+辨识结果，或用 `--gravity-compensation-enable false` 关闭。加 `--tare-compensated`
 可以在启动时把当前**重力补偿后的六维力**作为零点，后续都减去该残余偏置。
-默认同时打开非阻塞的六维力曲线窗口；不需要时加 `--no-plot`，
-`--plot-wrench` 可显式保持打开。
+默认同时打开非阻塞的六维力曲线窗口；不需要时加 `--plot-wrench-enable false`，
+`--plot-wrench-enable true` 可显式保持打开。
 
 运行后会打开一个名为 `JAKA keyboard servo` 的 GLFW 窗口；键盘按键必须在
 该窗口内输入，不能在启动脚本的终端里按。终端里出现的 `s`、`w` 等字符
@@ -179,7 +178,7 @@ EDG 原始六维值 → 去负载重力/零偏 → 移到 tool0、滤波 → 导
 
 按键只推动**名义位姿**；外力（用第 4 节的在线重力补偿去掉负载自重和零偏之后）产生
 柔顺偏移。因此 `--admittance` **要求重力补偿处于打开状态**，否则负载自重会一直把偏移
-顶跑；同时给出 `--admittance` 和 `--no-gravity-compensation` 时脚本会在联网之前直接
+顶跑；同时给出 `--admittance` 和 `--gravity-compensation-enable false` 时脚本会在联网之前直接
 报错退出。
 
 #### 5.2 前置条件：先做负载重力辨识
@@ -199,7 +198,7 @@ python tool/identify_ft_payload.py tool/ft_gravity_samples.csv                # 
 导纳链照常积分并打印，可以先把符号和量级确认清楚：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py --dry-run --admittance --no-plot
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py --dry-run --admittance --plot-wrench-enable false
 ```
 
 每秒两行状态，导纳字段追加在 `|T|` 之后：
@@ -225,7 +224,7 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py --dry-run --admittance -
 确认符号正确后进入伺服，先用保守增益和小钳位：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py --admittance --plot-wrench-enable false \
   --adm-mass 2 2 2 .02 .02 .02 \
   --adm-damping 60 60 60 1.5 1.5 1.5 \
   --adm-stiffness 300 300 300 30 30 30 \
@@ -243,7 +242,7 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
 例如关闭 Z 轴竖直导纳、保留 X/Y 平移：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py --admittance --plot-wrench-enable false \
   --adm-disable-axes z
 ```
 
@@ -251,7 +250,7 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
 开始起作用：
 
 ```bash
-python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
+python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py --admittance --plot-wrench-enable false \
   --admittance-axes all --adm-max-offset-m 0.03 --adm-max-offset-deg 8 \
   --max-force-n 6 --max-torque-nm 8
 ```
@@ -267,7 +266,7 @@ python examples/jaka_driver_tool/jaka_keyboard_servo.py --admittance --no-plot \
 | `--adm-max-velocity` | 0.05 m/s、0.17 rad/s | 六个分量的速度上限 |
 | `--adm-max-offset-m` / `--adm-max-offset-deg` | 0.03 / 8 | 柔顺偏移相对名义位姿的钳位，实机必设 |
 | `--gravity-json` | `tool/ft_gravity_samples_identified.json` | 导纳输入所依赖的在线重力补偿辨识结果 |
-| `--no-gravity-compensation` | 关 | 关闭重力补偿；与 `--admittance` 同时使用会直接报错 |
+| `--gravity-compensation-enable false` | 关 | 关闭重力补偿；与 `--admittance` 同时使用会直接报错 |
 | `--tare-compensated` | 关 | 把当前补偿后残差作为零点，去掉残余偏置 |
 | `--deadband-force` / `--deadband-torque` | 0 / 0 | 补偿后力/力矩死区；例如 `1.0` N、`0.5` N·m |
 
@@ -314,3 +313,24 @@ python examples/jaka_driver_tool/jaka_stop.py --read-only
 - `JakaWristFTAdapter` 默认使用 WBMM 硬件接口中的补偿矩阵和力臂参数；
   如有实测标定值，修改 adapter 模块中的 `DEFAULT_SENSOR_TO_TOOL_ROTATION`
   和 `DEFAULT_TOOL_ARM_M`，或通过构造函数传入。
+
+### 模块化节点与控制日志
+
+键盘入口和参数已移至 `src/replace_disk_robot/applications/jaka_keyboard/`。
+`jaka_keyboard_servo.py` 保留原控制逻辑，仅更新导入及资源路径。
+新版入口为 `jaka_keyboard_node.py`，由
+`replace_disk_robot.applications.jaka_keyboard.node` 调度。参数、力处理、参考生成和窗口职责已分离。
+`tests/fixtures/jaka_keyboard_servo_before_refactor.py` 另保存原版本快照，用于离线回归。
+
+将原启动命令中的脚本名换为 `jaka_keyboard_node.py`，保留原参数；追加
+`--log-dir logs/jaka_trial_001` 可记录每个控制周期，目录必须不存在。
+记录默认关闭；可同时加 `--dry-run` 先检查数据路径。日志写盘使用后台线程，丢样和写盘错误保存在结束摘要中。
+
+```bash
+python tool/analyze_jaka_control_log.py logs/jaka_trial_001 --plots
+```
+
+分析器只读日志，生成导纳离散公式校验、参考跟踪指标和曲线，不连接机器人。
+模块职责、字段与验收边界见 [拆分与日志说明](../../docs/jaka_keyboard_refactor.md)。
+
+简明使用指南见 [jaka_keyboard README](../../src/replace_disk_robot/applications/jaka_keyboard/README.md)。

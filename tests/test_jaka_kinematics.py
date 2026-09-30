@@ -102,7 +102,7 @@ class JakaKinematicsTest(unittest.TestCase):
             1.0 - 1e-9,
         )
 
-    def test_low_keyframe_fk_matches_mujoco_virtual_tool0(self) -> None:
+    def test_low_keyframe_fk_matches_mujoco_tool0(self) -> None:
         model, data = load_model("jaka")
         reset_keyframe(model, data, "low")
         adapter = MujocoRobotAdapter(
@@ -115,13 +115,11 @@ class JakaKinematicsTest(unittest.TestCase):
         pose = self.kinematics.forward(adapter.read_joint_state())
 
         base = data.body("jaka_base_link")
-        tool = data.body("tool0_and_camera_link")
+        tool = data.body("tool0")
         world_rotation_base = base.xmat.reshape(3, 3)
         world_rotation_tool = tool.xmat.reshape(3, 3)
         expected_position = world_rotation_base.T @ (
-            tool.xpos
-            + world_rotation_tool @ np.array([0.0, 0.0, 0.27])
-            - base.xpos
+            tool.xpos - base.xpos
         )
         expected_rotation = world_rotation_base.T @ world_rotation_tool
 
@@ -132,6 +130,52 @@ class JakaKinematicsTest(unittest.TestCase):
 
         actuator_ids = np.array([model.actuator(name).id for name in JAKA_ACTUATORS])
         np.testing.assert_allclose(data.ctrl[actuator_ids], adapter.arm_position())
+
+    def test_end_effector_frames_match_urdf_across_configurations(self) -> None:
+        model, data = load_model("jaka")
+        frames = tuple(f"Link_{index}" for index in range(7)) + (
+            "Link_6_45", "jk_se_vi_200_link", "tool0_and_camera_link",
+            "tool0", "d435i_link",
+        )
+        kinematics = {
+            frame: JakaKinematics(end_effector_frame=frame) for frame in frames
+        }
+        qpos_ids = [model.joint(name).qposadr[0] for name in JAKA_JOINT_NAMES]
+        lower, upper = self.kinematics.joint_limits_rad
+        configurations = [np.zeros(6)]
+        configurations.extend(np.random.default_rng(42).uniform(lower, upper, (10, 6)))
+        for q in configurations:
+            data.qpos[qpos_ids] = q
+            mujoco.mj_forward(model, data)
+            base = data.body("jaka_base_link")
+            base_rotation = base.xmat.reshape(3, 3)
+            for frame, kin in kinematics.items():
+                with self.subTest(q=q, frame=frame):
+                    body = data.body(frame)
+                    pose = kin.forward(self.joints(q))
+                    np.testing.assert_allclose(
+                        pose.position_m,
+                        base_rotation.T @ (body.xpos - base.xpos),
+                        atol=2e-7, rtol=0,
+                    )
+                    np.testing.assert_allclose(
+                        rotation_matrix(pose.quaternion_wxyz),
+                        base_rotation.T @ body.xmat.reshape(3, 3),
+                        atol=2e-7, rtol=0,
+                    )
+            # The TCP changes X/Y only; the F/T site retains sensor axes.
+            tool = data.body("tool0_and_camera_link")
+            tcp = data.body("tool0")
+            np.testing.assert_allclose(
+                tcp.xmat.reshape(3, 3),
+                tool.xmat.reshape(3, 3) @ np.diag([-1., -1., 1.]),
+                atol=1e-12,
+            )
+            np.testing.assert_allclose(
+                data.site("tcp_fts_site").xmat,
+                data.body("jk_se_vi_200_link").xmat,
+                atol=1e-12,
+            )
 
     def test_up_keyframe_matches_recorded_jaka_startup_pose(self) -> None:
         expected = np.array(

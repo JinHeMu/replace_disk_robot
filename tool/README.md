@@ -151,7 +151,7 @@ python3 tool/plot_ft_gravity_data.py tool/ft_gravity_check.csv \
 
 ## 7. 把辨识结果用于在线补偿
 
-`examples/jaka_driver_tool/jaka_keyboard_servo.py` 默认读取
+`src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py` 默认读取
 `tool/ft_gravity_samples_identified.json`，在力限保护之前完成上述传感器零偏、
 负载重力和质心力矩补偿，并默认打开补偿后的六维力曲线。下面的代码演示如何在
 其他算法中手动接入同一套 `SensorWrenchCompensator`。

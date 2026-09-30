@@ -49,8 +49,9 @@ from jaka_common import (  # noqa: E402
     add_network_args,
     edg_session,
     make_client,
+    parse_bool,
 )
-from jaka_keyboard_servo import (  # noqa: E402
+from replace_disk_robot.applications.jaka_keyboard.jaka_keyboard_servo import (  # noqa: E402
     JakaKeyboardServo,
     _KEY_TO_NAME,
     _window_title,
@@ -117,14 +118,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--tare-samples", type=int, default=50,
                         help="tare used only by the live safety gate, not by saved raw data")
     parser.add_argument("--tare-period-ms", type=float, default=10.0)
-    parser.add_argument("--no-tare", action="store_true",
-                        help="disable safety-gate tare; saved raw data is never tared")
+    parser.add_argument("--tare-enable", type=parse_bool, default=True, metavar="true|false",
+                        help="enable safety-gate tare; saved raw data is never tared")
     parser.add_argument("--alpha", type=float, default=0.2)
     parser.add_argument("--deadband-force", type=float, default=1.0)
     parser.add_argument("--deadband-torque", type=float, default=0.2)
     parser.add_argument("--identity-transform", action="store_true",
                         help="use identity sensor-to-tool rotation (diagnostics only)")
-    parser.set_defaults(headless=False, plot_wrench=False)
+    parser.set_defaults(headless=False, plot_wrench_enable=False)
     return parser.parse_args()
 
 

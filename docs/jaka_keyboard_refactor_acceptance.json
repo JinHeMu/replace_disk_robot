@@ -1,0 +1,142 @@
+{
+  "fixture": "fake SDK/linear kinematics, 1000 matched cycles, no hardware",
+  "session_path": "/tmp/jaka_refactor_acceptance_5rckzl9a/session",
+  "baseline_tick_ms": {
+    "median": 0.7107935000000001,
+    "p95": 0.9707936499999996,
+    "max": 3.172352
+  },
+  "recorded_tick_ms": {
+    "median": 0.8624315,
+    "p95": 1.1929305999999997,
+    "max": 3.343979
+  },
+  "analysis": {
+    "scope": "offline algebra/record integrity/reference tracking; no hardware acceptance",
+    "rows": 1000,
+    "checked_admittance_cycles": 1000,
+    "skipped_admittance_cycles": 0,
+    "malformed_lines": 0,
+    "missing_sequences_between_rows": 0,
+    "time_order_ok": true,
+    "sequence_order_ok": true,
+    "observation_error_cycles": 0,
+    "recording_complete": true,
+    "writer_summary": {
+      "accepted": 2001,
+      "written": 2001,
+      "dropped": 0,
+      "pending": 0,
+      "written_samples": 1000,
+      "observer_errors": 0,
+      "writer_error": null,
+      "writer_stopped": true,
+      "complete": true
+    },
+    "sample_count_matches_summary": true,
+    "max_discrete_residual": 0.0,
+    "max_masked_input_error": 0.0,
+    "inconsistent_input_cycles": 0,
+    "discrete_equation_matches": true,
+    "velocity_clipped_cycles": 0,
+    "offset_clamped_cycles": 0,
+    "fault_cycles": 0,
+    "dt_ms": {
+      "median": 8.0,
+      "p95": 8.0,
+      "max": 8.0
+    },
+    "reference_tracking_rms_mm": 0.09437485470564863,
+    "reference_tracking_rms_deg": 0.0
+  },
+  "source_preservation": {
+    "path": "src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_servo.py",
+    "sha256": "59312662ec8f995ba7a9547964fc6d67a98e17447c4ab9b394b3d9e292f2ad60",
+    "before_refactor_fixture": "tests/fixtures/jaka_keyboard_servo_before_refactor.py",
+    "before_refactor_sha256": "8e6e1069dbd39acee79405d1bba54cf1ac822d675644f87de7f06dc895572902",
+    "relocation_changes": [
+      "repository source bootstrap",
+      "canonical adapter/session imports",
+      "project root and colocated YAML path"
+    ],
+    "control_definitions_ast_identical_after_switch_normalization": true,
+    "intentional_interface_changes": [
+      "positive enable names",
+      "explicit true/false CLI arguments",
+      "strict YAML/JSON boolean validation"
+    ]
+  },
+  "focused_tests": {
+    "passed": 93,
+    "duration_s": 5.09,
+    "suites": [
+      "test_jaka_control_logging.py",
+      "test_jaka_keyboard_refactor.py",
+      "test_jaka_keyboard_admittance.py",
+      "test_ft_gravity_collector.py",
+      "test_jaka_driver_tool.py",
+      "test_jaka_keyboard_config.py"
+    ]
+  },
+  "new_entry": "src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_node.py",
+  "hardware_tested_this_run": false,
+  "unchanged_this_refactor": [
+    "hardware YAML",
+    "admittance integrator",
+    "servo algorithm",
+    "force safety policy"
+  ],
+  "broader_tests": {
+    "passed": 201,
+    "duration_s": 176.29,
+    "excluded_collection_failures": {
+      "tests/test_motion_pipeline.py": "pre-existing import of absent replace_disk_robot.planning.optimize",
+      "tests/test_trj_opt.py": "pre-existing import of absent replace_disk_robot.planning.optimize"
+    },
+    "scope": "initial refactor acceptance, before package relocation"
+  },
+  "static_checks": {
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "migrated_session_definitions_ast_identical": [
+      "add_network_args",
+      "make_client",
+      "wait_for_edg_state",
+      "edg_session",
+      "RateLoop"
+    ]
+  },
+  "package_relocation": {
+    "directory": "src/replace_disk_robot/applications/jaka_keyboard",
+    "yaml_byte_identical_to_original": true,
+    "entry_help_from_external_working_directory": "both passed",
+    "gravity_collector_help": "passed",
+    "wheel_contains_entrypoints_and_yaml": true,
+    "hardware_tested": false,
+    "scope": "relocation acceptance before positive switch rename"
+  },
+  "parameter_switch_update": {
+    "names": [
+      "gravity_compensation_enable",
+      "tare_enable",
+      "plot_wrench_enable"
+    ],
+    "default_enabled": true,
+    "previous_effective_yaml_values_preserved": true,
+    "cli_explicit_boolean": true,
+    "invalid_boolean_values_rejected": true,
+    "runtime_negative_options_removed": true,
+    "hardware_tested": false
+  },
+  "final_commit_validation": {
+    "passed": 223,
+    "duration_s": 175.98,
+    "excluded_preexisting_collection_errors": [
+      "tests/test_motion_pipeline.py",
+      "tests/test_trj_opt.py"
+    ],
+    "staged_diff_check": "passed",
+    "shared_session_type_annotations": "resolved",
+    "hardware_tested": false
+  }
+}

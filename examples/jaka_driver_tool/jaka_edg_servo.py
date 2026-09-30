@@ -31,6 +31,7 @@ from jaka_common import (
     edg_session,
     fmt_array,
     make_client,
+    parse_bool,
 )
 from replace_disk_robot.core import JointState
 
@@ -48,8 +49,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-force-n", type=float, default=20.0)
     parser.add_argument("--max-torque-nm", type=float, default=5.0)
     parser.add_argument("--max-joint-error-rad", type=float, default=0.5)
-    parser.add_argument("--no-tare", action="store_true",
-                        help="skip the pre-servo FT tare")
+    parser.add_argument("--tare-enable", type=parse_bool, default=True,
+                        metavar="true|false", help="enable the pre-servo FT tare")
     parser.add_argument("--dry-run", action="store_true",
                         help="read EDG but do not enable servo or send commands")
     return parser.parse_args()
@@ -72,7 +73,7 @@ def main() -> None:
             arm = JakaRobotAdapter(client)
             ft = JakaWristFTAdapter(client)
 
-            if not args.no_tare:
+            if args.tare_enable:
                 print("[servo] taring FT before enabling servo")
                 print(f"[servo] bias={fmt_array(ft.tare(), 4)}")
 

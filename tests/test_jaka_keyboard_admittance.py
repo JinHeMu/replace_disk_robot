@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "examples" / "jaka_driver_tool"))
 
-import jaka_keyboard_servo as keyboard  # noqa: E402
+from replace_disk_robot.applications.jaka_keyboard import jaka_keyboard_servo as keyboard  # noqa: E402
 from replace_disk_robot.adapters.jaka import EdgState  # noqa: E402
 from replace_disk_robot.core import Pose  # noqa: E402
 from replace_disk_robot.core.rotation import (  # noqa: E402
@@ -120,7 +120,14 @@ def _make_app(
         keyboard, "JakaKinematics",
         LinearKinematics if kinematics is None else (lambda: kinematics),
     )
-    monkeypatch.setattr(sys, "argv", ["jaka_keyboard_servo.py", *argv])
+    # Behaviour tests use the parser's fixed defaults, not the operator's
+    # mutable, hardware-validated YAML profile. Profile compatibility is
+    # covered separately against the pre-refactor implementation.
+    config = tmp_path / "test_keyboard_config.json"
+    config.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [
+        "jaka_keyboard_servo.py", "--config", str(config), *argv,
+    ])
     args = keyboard._parse_args()
     client = DummyClient()
     app = keyboard.JakaKeyboardServo(client, args)
@@ -341,7 +348,7 @@ def test_dry_run_never_commands_the_robot(monkeypatch, tmp_path):
 
 def test_admittance_requires_gravity_compensation(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "argv", [
-        "jaka_keyboard_servo.py", "--admittance", "--no-gravity-compensation",
+        "jaka_keyboard_servo.py", "--admittance", "--gravity-compensation-enable", "false",
     ])
     with pytest.raises(SystemExit, match="gravity compensation"):
         keyboard._validate_admittance_args(keyboard._parse_args())
@@ -418,7 +425,7 @@ def test_servo_mode_without_admittance_is_unchanged(monkeypatch, tmp_path):
     """The default (non-compliant) path must keep its original behaviour."""
 
     app, client = _make_app(
-        monkeypatch, tmp_path, "--no-tare", "--no-gravity-compensation",
+        monkeypatch, tmp_path, "--tare-enable", "false", "--gravity-compensation-enable", "false",
     )
     assert app.admittance_enabled is False
     assert app.motion is None
@@ -436,7 +443,7 @@ def test_servo_mode_without_admittance_is_unchanged(monkeypatch, tmp_path):
 
 def test_dry_run_without_admittance_never_commands(monkeypatch, tmp_path):
     app, client = _make_app(
-        monkeypatch, tmp_path, "--dry-run", "--no-tare", "--no-gravity-compensation",
+        monkeypatch, tmp_path, "--dry-run", "--tare-enable", "false", "--gravity-compensation-enable", "false",
     )
     app.keys.press("w")
     _run(app, client, 20)

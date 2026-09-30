@@ -21,7 +21,7 @@ angular_speed_deg: 1.0        # 键盘旋转速度，单位 deg/s
 command_frame: base           # base=W/S/A/D 等用 jaka_base_link；tool=用当前 tool0
 seconds: 0.0                  # >0 时运行指定秒数后退出；0=一直运行到 Esc/关窗
 dry_run: false                # true=只读 EDG/F/T 和键盘，不使能 servo、不发运动
-plot_wrench: true             # true=默认打开补偿后的六维力曲线窗口
+plot_wrench_enable: true      # true=打开六维力曲线窗口；false=关闭
 
 # ----------------------------------------------------------------------------
 # 安全限制
@@ -36,7 +36,7 @@ torque_sensor_mode: 1         # EDG 力矩传感器模式；必须输出未做�
 # ----------------------------------------------------------------------------
 tare_samples: 50              # 未开启重力补偿时，适配器 tare 的采样数
 tare_period_ms: 10.0          # 适配器 tare 的采样周期，单位 ms
-no_tare: false                # true=跳过适配器 tare（只影响非重力补偿路径）
+tare_enable: true            # true=开启适配器去皮；false=关闭（只影响非重力补偿路径）
 tare_compensated: false       # true=以当前“重力补偿后的六维力”为额外零点
 
 # ----------------------------------------------------------------------------
@@ -51,7 +51,7 @@ identity_transform: false     # true=跳过传感器到 tool0 的旋转/力臂�
 # 重力补偿
 # ----------------------------------------------------------------------------
 gravity_json: "tool/ft_gravity_samples_identified.json"  # 负载重力辨识结果
-no_gravity_compensation: false  # true=关闭重力补偿，退回适配器 tare 模式
+gravity_compensation_enable: true  # true=开启重力补偿；false=关闭，使用适配器力处理
 
 # ----------------------------------------------------------------------------
 # 导纳柔顺模式

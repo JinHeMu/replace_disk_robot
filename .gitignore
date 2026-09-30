@@ -17,3 +17,6 @@ MUJOCO_LOG.TXT
 
 # Local conda environments (read-only system envs dir workaround)
 .conda_envs/
+
+# Hardware experiment logs (source/config snapshots may be large)
+logs/
