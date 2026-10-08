@@ -144,7 +144,7 @@ python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv \
 
 输出已存在时请换名字，或在明确需要重新生成候选文件时加 `--overwrite`。新采集器已使用修正后的默认外参，正常的新 CSV **不加** `--repair-stale-tool0-extrinsics`；tool0 修改前的旧 CSV 也不能套用这个选项。只适用于“新 tool0 姿态 + 旧传感器外参”混用的数据。
 
-在线 `gravity_json` 中的旋转与力臂会覆盖代码默认值，因此只改默认函数不能修复仍加载旧标定的运行。新候选标定应先通过只读的已知方向施力验证，再用于运动。不要直接覆盖当前标定。详细证据见 [三份日志排查报告](../logs/force_direction_audit/report.md)。
+在线 `gravity_json` 中的旋转与力臂会覆盖代码默认值，因此只改默认函数不能修复仍加载旧标定的运行。根据用户本地修复结果，当前默认标定已替换为上面的 4° 约束结果，原有旧外参标定内容不再作为在线默认参数。历史问题与该候选生成时的验证边界见 [三份日志排查报告](../logs/force_direction_audit/report.md)。
 
 交给 NUC Codex 的六方向施力步骤、日志检查、坐标换算与判定标准见 [NUC 验证交接](../docs/jaka_force_direction_nuc_validation.md)。第一轮用 `--dry-run --headless`，不发送运动目标。
 

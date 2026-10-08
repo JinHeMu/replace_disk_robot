@@ -58,14 +58,27 @@ python examples/jaka_driver_tool/jaka_stop.py
 python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_node.py --linear-speed 0.001 --plot-wrench-enable false
 ```
 
-常用参数：`linear_speed`（平移速度）、`adm_mass/damping/stiffness`（导纳 M/D/K）、`alpha`（滤波）、`deadband_force/torque`（死区）。导纳开启时需要启用重力补偿；默认辨识文件为仓库中的 `tool/ft_gravity_samples_identified.json`。
+常用参数：`linear_speed`（平移速度）、`adm_mass/damping/stiffness`（导纳 M/D/K）、`alpha`（滤波）、`deadband_force/torque`（死区）。导纳开启时需要启用重力补偿。当前默认标定 `tool/ft_gravity_samples_identified.json` 已用 `logs/force_direction_audit/candidate_tool0_repaired_bounded4.json` 的内容替换；默认开启重力补偿、关闭额外去皮，只对平移轴开启导纳，禁用轴列表为空。
+
+从仓库根目录直接运行 `python3 src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_node.py` 即使用上述配置。等价的显式参数为：
+
+```bash
+python3 src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_node.py \
+  --gravity-compensation-enable true \
+  --gravity-json logs/force_direction_audit/candidate_tool0_repaired_bounded4.json \
+  --tare-enable false --admittance --admittance-axes translation \
+  --adm-disable-axes
+```
+
+`--adm-disable-axes` 后面不跟轴名表示不额外禁用任何平移轴。历史排查与验证边界见 [力方向排查报告](../../../../logs/force_direction_audit/report.md)。
+
 用 `--config /path/to/config.yaml` 指定其他参数文件；用 `--help` 查看全部选项。
 
 功能开关统一使用正向布尔值：`true` 开启，`false` 关闭。YAML 示例：
 
 ```yaml
 gravity_compensation_enable: true  # 重力补偿
-tare_enable: true                  # 非重力补偿路径的适配器去皮
+tare_enable: false                 # 当前默认关闭适配器去皮
 plot_wrench_enable: false          # 六维力曲线窗口
 ```
 

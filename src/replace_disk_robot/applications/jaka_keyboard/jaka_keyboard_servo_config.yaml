@@ -50,14 +50,14 @@ identity_transform: false     # true=跳过传感器到 tool0 的旋转/力臂�
 # ----------------------------------------------------------------------------
 # 重力补偿
 # ----------------------------------------------------------------------------
-gravity_json: "tool/ft_gravity_samples_identified.json"  # 负载重力辨识结果
+gravity_json: "tool/ft_gravity_samples_identified.json"  # 已替换为 tool0 外参修复后的 4° 约束标定；原文件内容已移除
 gravity_compensation_enable: true  # true=开启重力补偿；false=关闭，使用适配器力处理
 
 # ----------------------------------------------------------------------------
 # 导纳柔顺模式
 # ----------------------------------------------------------------------------
 admittance: true             # true=开启导纳；开启时必须保持重力补偿开启
-admittance_axes: all  # translation=只开平移轴；all=六个轴全部参与
+admittance_axes: translation  # 当前实机配置：仅平移柔顺；旋转导纳未验证
 adm_disable_axes: []         # 在 admittance_axes 基础上禁用单轴；顺序 [x,y,z,rx,ry,rz]，轴为 tool0 坐标系；[z] 表示关闭 Z 轴平移导纳
 
 # 导纳质量：顺序 [x,y,z,rx,ry,rz]，平移单位 kg，旋转单位 kg*m^2
