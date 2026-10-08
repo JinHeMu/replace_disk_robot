@@ -1,0 +1,356 @@
+[
+  {
+    "session": "jaka_trial_001",
+    "rows": 4595,
+    "active_cycles": 4246,
+    "fault_counts": {
+      "focus_lost": 349,
+      "None": 4246
+    },
+    "keys_pressed_cycles": 0,
+    "independent_fk_max_position_error_m": 6.661338147750939e-16,
+    "independent_fk_max_rotation_matrix_error": 1.5543122344752192e-15,
+    "tool0_flip_max_position_change_m": 0.0,
+    "tool0_new_equals_old_times_D_error": 1.214306433183765e-16,
+    "external_rotation_max_error_N": 6.217248937900877e-15,
+    "admittance_application_max_error_m": 6.505213034913027e-17,
+    "discrete_replay_max_error": 1.734723475976807e-18,
+    "measured_vs_logged_force": {
+      "count": 688,
+      "positive_count": 688,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9666736275749142
+    },
+    "measured_vs_logged_force_sustained": {
+      "count": 627,
+      "positive_count": 627,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9725321668185052
+    },
+    "measured_vs_admittance_velocity": {
+      "count": 765,
+      "positive_count": 765,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9741460245328885
+    },
+    "measured_vs_frame_migrated_force_sustained": {
+      "count": 627,
+      "positive_count": 0,
+      "positive_fraction": 0.0,
+      "median_cosine": -0.9791017817191
+    },
+    "command_increment_vs_admittance_velocity": {
+      "count": 839,
+      "positive_count": 839,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9874254714909518
+    },
+    "current_and_logged_urdf_identical": true,
+    "initial_tool_axes_in_base": [
+      [
+        -0.999534070388544,
+        -0.02010364846888203,
+        0.022967051416088676
+      ],
+      [
+        0.022566066394467007,
+        0.019950528735223117,
+        0.999546271590598
+      ],
+      [
+        -0.020552731691678715,
+        0.9995988293917837,
+        -0.019487572927001363
+      ]
+    ],
+    "thresholds": {
+      "force_N": 1.5,
+      "speed_m_s": 0.003,
+      "forward_window_samples": 5,
+      "direction_sustained_min_cosine": 0.95
+    },
+    "sensor_to_tool_rotation_logged": [
+      [
+        0.7071067811865472,
+        -0.7071067811865476,
+        -1.8699327230069756e-16
+      ],
+      [
+        0.6644259853128232,
+        0.6644259853128229,
+        0.3421640251139345
+      ],
+      [
+        -0.24194650243614707,
+        -0.2419465024361471,
+        0.9396402396225005
+      ]
+    ],
+    "frame_migrated_rotation_D_times_logged": [
+      [
+        -0.7071067811865472,
+        0.7071067811865476,
+        1.8699327230069756e-16
+      ],
+      [
+        -0.6644259853128232,
+        -0.6644259853128229,
+        -0.3421640251139345
+      ],
+      [
+        -0.24194650243614707,
+        -0.2419465024361471,
+        0.9396402396225005
+      ]
+    ],
+    "tool_to_sensor_m_logged": [
+      0.0,
+      -0.05,
+      -0.4
+    ],
+    "frame_migrated_tool_to_sensor_m": [
+      0.0,
+      0.05,
+      -0.4
+    ],
+    "pinocchio_30_poses_max_position_error_m": 3.3306690738754696e-16,
+    "pinocchio_30_poses_max_rotation_error": 1.2212453270876722e-15,
+    "pinocchio_30_poses_max_jacobian_error": 1.2212453270876722e-15
+  },
+  {
+    "session": "jaka_trial_002",
+    "rows": 5487,
+    "active_cycles": 4433,
+    "fault_counts": {
+      "focus_lost": 1054,
+      "None": 4433
+    },
+    "keys_pressed_cycles": 0,
+    "independent_fk_max_position_error_m": 7.771561172376096e-16,
+    "independent_fk_max_rotation_matrix_error": 1.4432899320127035e-15,
+    "tool0_flip_max_position_change_m": 0.0,
+    "tool0_new_equals_old_times_D_error": 1.249000902703301e-16,
+    "external_rotation_max_error_N": 5.329070518200751e-15,
+    "admittance_application_max_error_m": 7.502679033599691e-17,
+    "discrete_replay_max_error": 1.734723475976807e-18,
+    "measured_vs_logged_force": {
+      "count": 1679,
+      "positive_count": 1676,
+      "positive_fraction": 0.9982132221560452,
+      "median_cosine": 0.9637010383108372
+    },
+    "measured_vs_logged_force_sustained": {
+      "count": 1570,
+      "positive_count": 1570,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9650780225117325
+    },
+    "measured_vs_admittance_velocity": {
+      "count": 1920,
+      "positive_count": 1920,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9708542815407482
+    },
+    "measured_vs_frame_migrated_force_sustained": {
+      "count": 1570,
+      "positive_count": 0,
+      "positive_fraction": 0.0,
+      "median_cosine": -0.9747939691512917
+    },
+    "command_increment_vs_admittance_velocity": {
+      "count": 2059,
+      "positive_count": 2059,
+      "positive_fraction": 1.0,
+      "median_cosine": 0.9736220605849653
+    },
+    "current_and_logged_urdf_identical": true,
+    "initial_tool_axes_in_base": [
+      [
+        -0.9985081920501808,
+        -0.02108203719184255,
+        0.050368026728477296
+      ],
+      [
+        0.05054274901425111,
+        -0.007838281299519481,
+        0.9986911393761092
+      ],
+      [
+        -0.02065964498149093,
+        0.999747022528255,
+        0.008892132203660348
+      ]
+    ],
+    "thresholds": {
+      "force_N": 1.5,
+      "speed_m_s": 0.003,
+      "forward_window_samples": 5,
+      "direction_sustained_min_cosine": 0.95
+    },
+    "sensor_to_tool_rotation_logged": [
+      [
+        0.7071067811865472,
+        -0.7071067811865476,
+        -1.8699327230069756e-16
+      ],
+      [
+        0.6644259853128232,
+        0.6644259853128229,
+        0.3421640251139345
+      ],
+      [
+        -0.24194650243614707,
+        -0.2419465024361471,
+        0.9396402396225005
+      ]
+    ],
+    "frame_migrated_rotation_D_times_logged": [
+      [
+        -0.7071067811865472,
+        0.7071067811865476,
+        1.8699327230069756e-16
+      ],
+      [
+        -0.6644259853128232,
+        -0.6644259853128229,
+        -0.3421640251139345
+      ],
+      [
+        -0.24194650243614707,
+        -0.2419465024361471,
+        0.9396402396225005
+      ]
+    ],
+    "tool_to_sensor_m_logged": [
+      0.0,
+      -0.05,
+      -0.4
+    ],
+    "frame_migrated_tool_to_sensor_m": [
+      0.0,
+      0.05,
+      -0.4
+    ],
+    "pinocchio_30_poses_max_position_error_m": 5.551115123125783e-16,
+    "pinocchio_30_poses_max_rotation_error": 1.1102230246251565e-15,
+    "pinocchio_30_poses_max_jacobian_error": 1.1102230246251565e-15
+  },
+  {
+    "session": "jaka_trial_003",
+    "rows": 4754,
+    "active_cycles": 4402,
+    "fault_counts": {
+      "focus_lost": 352,
+      "None": 4402
+    },
+    "keys_pressed_cycles": 0,
+    "independent_fk_max_position_error_m": 7.771561172376096e-16,
+    "independent_fk_max_rotation_matrix_error": 1.4432899320127035e-15,
+    "tool0_flip_max_position_change_m": 0.0,
+    "tool0_new_equals_old_times_D_error": 1.249000902703301e-16,
+    "external_rotation_max_error_N": 7.993605777301127e-15,
+    "admittance_application_max_error_m": 7.112366251504909e-17,
+    "discrete_replay_max_error": 1.734723475976807e-18,
+    "measured_vs_logged_force": {
+      "count": 1583,
+      "positive_count": 1550,
+      "positive_fraction": 0.9791535060012634,
+      "median_cosine": 0.8626213093309424
+    },
+    "measured_vs_logged_force_sustained": {
+      "count": 1445,
+      "positive_count": 1426,
+      "positive_fraction": 0.9868512110726644,
+      "median_cosine": 0.8654655292723232
+    },
+    "measured_vs_admittance_velocity": {
+      "count": 1717,
+      "positive_count": 1686,
+      "positive_fraction": 0.9819452533488643,
+      "median_cosine": 0.8794546840202381
+    },
+    "measured_vs_frame_migrated_force_sustained": {
+      "count": 1445,
+      "positive_count": 25,
+      "positive_fraction": 0.01730103806228374,
+      "median_cosine": -0.9371718078431148
+    },
+    "command_increment_vs_admittance_velocity": {
+      "count": 1846,
+      "positive_count": 1833,
+      "positive_fraction": 0.9929577464788732,
+      "median_cosine": 0.8937450207564781
+    },
+    "current_and_logged_urdf_identical": true,
+    "initial_tool_axes_in_base": [
+      [
+        -0.9983376351553355,
+        -0.02465885708791866,
+        0.05209517251694021
+      ],
+      [
+        0.0523230578344633,
+        -0.00868789294878547,
+        0.9985924184245352
+      ],
+      [
+        -0.024171550453033663,
+        0.9996581722184978,
+        0.009963677306516115
+      ]
+    ],
+    "thresholds": {
+      "force_N": 1.5,
+      "speed_m_s": 0.003,
+      "forward_window_samples": 5,
+      "direction_sustained_min_cosine": 0.95
+    },
+    "sensor_to_tool_rotation_logged": [
+      [
+        0.7071067811865472,
+        -0.7071067811865476,
+        -1.8699327230069756e-16
+      ],
+      [
+        0.6644259853128232,
+        0.6644259853128229,
+        0.3421640251139345
+      ],
+      [
+        -0.24194650243614707,
+        -0.2419465024361471,
+        0.9396402396225005
+      ]
+    ],
+    "frame_migrated_rotation_D_times_logged": [
+      [
+        -0.7071067811865472,
+        0.7071067811865476,
+        1.8699327230069756e-16
+      ],
+      [
+        -0.6644259853128232,
+        -0.6644259853128229,
+        -0.3421640251139345
+      ],
+      [
+        -0.24194650243614707,
+        -0.2419465024361471,
+        0.9396402396225005
+      ]
+    ],
+    "tool_to_sensor_m_logged": [
+      0.0,
+      -0.05,
+      -0.4
+    ],
+    "frame_migrated_tool_to_sensor_m": [
+      0.0,
+      0.05,
+      -0.4
+    ],
+    "pinocchio_30_poses_max_position_error_m": 5.551115123125783e-16,
+    "pinocchio_30_poses_max_rotation_error": 9.992007221626409e-16,
+    "pinocchio_30_poses_max_jacobian_error": 1.1102230246251565e-15
+  }
+]

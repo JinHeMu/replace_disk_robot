@@ -132,7 +132,7 @@ def _load_rows(
     times = values(("time_s",)).ravel()
     ids = np.asarray([int(row["capture_id"]) for row in selected], dtype=int)
     rotations = values(ROTATION_COLUMNS).reshape(-1, 3, 3)
-    return {
+    result = {
         "time_s": times,
         "capture_id": ids,
         "auto_included_noncapture": auto_included_noncapture,
@@ -140,9 +140,13 @@ def _load_rows(
         "raw_force_n": values(RAW_FORCE_COLUMNS),
         "raw_torque_nm": values(RAW_TORQUE_COLUMNS),
     }
+    extrinsic_columns = tuple(f"r_sensor_tool_{i}{j}" for i in range(3) for j in range(3))
+    if all(name in selected[0] for name in extrinsic_columns):
+        result["rotation_sensor_to_tool_recorded"] = values(extrinsic_columns).reshape(-1, 3, 3)
+    return result
 
 
-def _load_payload_fit(path: Path) -> tuple[dict[str, np.ndarray], list[str]]:
+def _load_payload_fit(path: Path) -> tuple[dict[str, Any], list[str]]:
     try:
         with path.open("r", encoding="utf-8") as stream:
             fit = json.load(stream)
@@ -162,6 +166,7 @@ def _load_payload_fit(path: Path) -> tuple[dict[str, np.ndarray], list[str]]:
         raise ValueError(f"cannot read payload identification file {path}: {exc}") from exc
     if any(value.shape != (3,) or not np.isfinite(value).all() for value in result.values()):
         raise ValueError(f"payload fit in {path} must contain finite 3D vectors")
+    result["stale_tool0_extrinsics_repaired"] = fit.get("stale_tool0_extrinsics_repaired") is True
     warnings = fit.get("warnings", [])
     if not isinstance(warnings, list) or not all(isinstance(item, str) for item in warnings):
         raise ValueError(f"warnings in {path} must be a list of strings")
@@ -169,10 +174,19 @@ def _load_payload_fit(path: Path) -> tuple[dict[str, np.ndarray], list[str]]:
 
 
 def _compensate(
-    data: dict[str, Any], fit: dict[str, np.ndarray]
+    data: dict[str, Any], fit: dict[str, Any]
 ) -> tuple[np.ndarray, np.ndarray]:
+    rotations = data["rotation_base_sensor"]
+    if fit.get("stale_tool0_extrinsics_repaired"):
+        if "rotation_sensor_to_tool_recorded" not in data:
+            raise ValueError("repaired payload fit requires the original CSV sensor extrinsics")
+        from identify_ft_payload import _project_rotation
+        rotations = np.array([
+            _project_rotation(base) @ _project_rotation(old).T @ np.diag([-1., -1., 1.]) @ _project_rotation(old)
+            for base, old in zip(rotations, data["rotation_sensor_to_tool_recorded"])
+        ])
     gravity_force_sensor = np.einsum(
-        "nji,j->ni", data["rotation_base_sensor"], fit["gravity_force_base_n"]
+        "nji,j->ni", rotations, fit["gravity_force_base_n"]
     )
     gravity_torque_sensor = np.cross(
         fit["center_of_mass_sensor_m"][None, :], gravity_force_sensor

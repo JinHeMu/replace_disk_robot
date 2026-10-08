@@ -96,7 +96,16 @@ JSONL 可直接离线读取和转表，不是原生 rosbag 或 MCAP。序号相�
 python tool/analyze_jaka_control_log.py logs/jaka_trial_001 --plots
 ```
 
-只读取日志，不加载 SDK、不连接或指挥机器人。生成 `analysis/report.json`、`cycle_metrics.csv` 及 `control_overview.png`。
+只读取日志，不加载 SDK、不连接或指挥机器人。生成 `analysis/report.md`（中文表格报告）、`report.json`、`cycle_metrics.csv`，以及 `force_control_samples.csv` 和 `admittance_control_samples.csv` 两份逐周期数据表。
+
+报告分为两部分：
+
+1. **力补偿**：在传感器坐标系下统计补偿后六维力/力矩；有原始数据时增加原始/补偿对比与配对差值，缺失值不补零。缺少传感器补偿阶段时可降级展示处理后 TCP 信号，明确来源与坐标系，不跨坐标系求差。
+2. **导纳控制**：2.1 显示 `tool0` 下补偿外力（滤波前）、处理外力（滤波/死区后）、屏蔽后实际输入、积分偏移和速度；2.2 在 `jaka_base_link` 下显示限幅后柔顺目标与实测相对当周期名义位姿的位移，并显示相对首个有效实测位姿的总运动及同周期跟踪误差。
+
+`--plots` 生成 `force_control_overview.png`、`admittance_control_overview.png` 和 `admittance_tracking_overview.png`。`--plot-force-control` 单独生成第一张，`--plot-admittance-control` 生成后两张。
+
+积分偏移在当前实测 TCP 轴中，机械臂位移在基座轴中；不能直接按同名 x/y/z 比较。实测 TCP 由实测关节正运动学得到。总位移包含键盘运动，实测相对名义位姿包含跟踪滞后；旋转采用基座轴旋转向量，非欧拉角差。反馈在本周期命令发送前采集，因此同周期跟踪误差不代表该命令执行后的响应。故障与未发送命令周期在图表中保留明确标记。完整输出定义见 [jaka_keyboard README](../src/replace_disk_robot/applications/jaka_keyboard/README.md#日志分析)。
 
 分析直接使用记录中的有效 M/D/K、真实 dt、积分前状态和屏蔽后的输入，独立计算：
 

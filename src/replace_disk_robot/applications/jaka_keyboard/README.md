@@ -79,4 +79,22 @@ plot_wrench_enable: false          # 六维力曲线窗口
 python tool/analyze_jaka_control_log.py logs/jaka_trial_001 --plots
 ```
 
-结果保存在日志目录的 `analysis/`：`report.json`（公式与完整性检查）、`cycle_metrics.csv`（周期指标）、`control_overview.png`（曲线）。
+结果保存在日志目录的 `analysis/`。首先阅读 `report.md`：报告分为“力补偿”和“导纳控制”两部分，导纳进一步分为“外力与控制器输出”和“机械臂实际运动”。`report.json` 保留原有公式与完整性检查，并增加这两部分的统计。
+
+| 输出 | 内容 |
+|---|---|
+| `report.md` | 六轴力补偿对比表、导纳外力/输出表、实际位移表及坐标系定义 |
+| `force_control_samples.csv` | 逐周期原始力、补偿力及同坐标系下的差值；没有原始信号时省略原始/差值列 |
+| `admittance_control_samples.csv` | 补偿后 TCP 外力、处理后外力、实际导纳输入、积分偏移/速度、目标与实测位移 |
+| `cycle_metrics.csv` | 原有离散残差、同周期跟踪误差及命令状态 |
+| `force_control_overview.png` | 原始与补偿后的六维力/力矩 |
+| `admittance_control_overview.png` | 导纳外力、积分偏移及速度 |
+| `admittance_tracking_overview.png` | 实测与目标位移、同周期误差、周期与命令状态 |
+
+表格与 CSV 始终生成。`--plots` 生成三张图；`--plot-force-control` 只生成力补偿图，`--plot-admittance-control` 生成两张导纳图。CSV 缺失值留空，统计忽略缺失值，不补零。六轴顺序为 Fx/Fy/Fz/Tx/Ty/Tz，位移顺序为 x/y/z/rx/ry/rz；平移单位 mm、旋转单位 deg，速度单位 mm/s 或 deg/s。
+
+力补偿在 `tcp_fts_sensor` 中对比原始与补偿后的数据；没有原始数据时只展示补偿数据。若没有传感器补偿阶段但有处理后 TCP 信号，报告明确标记降级数据来源及其坐标系。坐标系不同或未知的原始/补偿信号分别展示，不计算差值。均值、RMS、峰值绝对值为统计量，补偿前后差值不是补偿精度。
+
+导纳输入/输出位于当前实测 TCP 的 `tool0` 轴。外力分为补偿后 TCP 外力（滤波前）、处理后外力（滤波/死区后）和轴屏蔽后的实际输入。积分偏移是位姿限幅前的输出；机械臂运动图使用 `jaka_base_link`，显示限幅后修正目标相对当周期名义位姿的偏移、实测相对名义位姿的偏移，以及实测/目标/名义位姿相对首个有效实测位姿的总位移。后一项包含键盘运动，实测相对名义位姿也包含跟踪滞后。
+
+旋转位移采用 `log(R_current R_reference^T)` 的基座轴旋转向量，不作欧拉角相减。实测 TCP 来自实测关节的正运动学，反馈在本周期命令发送之前采集；同周期误差不能当作本周期命令执行后的响应。故障区间以红色阴影标记，CSV 保留 `command_sent`、`admittance_updated` 和 `fault`，积分输出存在不代表运动命令已经发送。目标与实测位姿坐标系不匹配或信号在日志中切换坐标系时，分析器报错，避免混轴比较。

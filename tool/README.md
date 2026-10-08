@@ -3,7 +3,7 @@
 本目录三个脚本的实机使用流程：
 
 - `collect_ft_gravity_data.py`：实机键盘 Servo + 5 Hz 自动采集静态姿态数据（**不需要按采集键**）；
-- `identify_ft_payload.py`：离线辨识负载质量、质心、传感器零偏和重力方向（含底盘倾斜）；
+- `identify_ft_payload.py`：离线辨识负载质量、质心、传感器零偏和受约束的重力方向；
 - `plot_ft_gravity_data.py`：离线补偿并绘制补偿前后的六轴曲线。
 
 以下命令假设仓库位于 `~/replace_disk_robot`。控制器 IP 不是默认值（`10.5.5.100` /
@@ -122,8 +122,8 @@ python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv --static-poses
 `--min-samples` 在默认模式下表示 CSV 总行数下限；在 `--static-poses` 模式下表示每个
 窗口的最小行数（默认 50）。
 
-- 重力向量是自由三维量，**底盘倾斜是拟合出来的**：`gravity_tilt_deg`、
-  `gravity_tilt_azimuth_deg`、`gravity_down_base_unit` 可与倾角仪读数对照；
+- 默认使用 `--gravity-mode bounded`，重力物理向下方向限制在基座 -Z 周围 **4°** 内，同时重新拟合带符号的重力载荷、零偏和质心；这允许约 2° 的底盘倾斜和约 1.5° 的安装倾斜合计范围。约束倾角不是独立测量结果。`--gravity-tilt-limit-deg 2` 使用更紧的 2° 上限，`--gravity-tilt-limit-deg 0` 固定为基座竖直；
+- `--gravity-mode free` 保留旧自由三维拟合，仅用于已确认的大倾角安装或诊断。输出始终保留 `unconstrained_gravity_tilt_deg` 和自由拟合残差；约束生效时仍会提示自由拟合的异常倾角，不能靠压小数字掩盖坐标错误；
 - `mass_kg = |h| / g`，只取决于重力向量的模，与倾斜无关；
 - `fit.force_rms_n`、`fit.torque_rms_nm` 越小越好；`fit.force_matrix_condition` 应远小于 100，
   否则说明姿态激励不够，需要补采更多不同朝向；
@@ -132,10 +132,30 @@ python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv --static-poses
 - 默认 10 s 窗口 = 51 行，对应辨识脚本默认的 `--min-samples 50`；若改小
   `--capture-seconds`，请把 `--min-samples` 调到 `N*5+1` 以内，否则该姿态会被跳过。
 
+### 历史 tool0 坐标变换修复
+
+2026-09-30 的三份 JAKA 日志及 `ft_gravity_samples.csv` 存在特定历史问题：URDF 的 tool0 已绕 Z 旋转 180°，采集/标定却仍使用旧 tool 轴中的传感器外参。修复需要同时重建每个样本的传感器朝向、修正输出旋转/力臂并重新拟合，不应只翻转控制力或单独修改重力向量。
+
+```bash
+python3 tool/identify_ft_payload.py tool/ft_gravity_samples.csv \
+  --repair-stale-tool0-extrinsics --gravity-tilt-limit-deg 4 \
+  --output logs/force_direction_audit/candidate_tool0_repaired_bounded4.json
+```
+
+输出已存在时请换名字，或在明确需要重新生成候选文件时加 `--overwrite`。新采集器已使用修正后的默认外参，正常的新 CSV **不加** `--repair-stale-tool0-extrinsics`；tool0 修改前的旧 CSV 也不能套用这个选项。只适用于“新 tool0 姿态 + 旧传感器外参”混用的数据。
+
+在线 `gravity_json` 中的旋转与力臂会覆盖代码默认值，因此只改默认函数不能修复仍加载旧标定的运行。新候选标定应先通过只读的已知方向施力验证，再用于运动。不要直接覆盖当前标定。详细证据见 [三份日志排查报告](../logs/force_direction_audit/report.md)。
+
+交给 NUC Codex 的六方向施力步骤、日志检查、坐标换算与判定标准见 [NUC 验证交接](../docs/jaka_force_direction_nuc_validation.md)。第一轮用 `--dry-run --headless`，不发送运动目标。
+
 ## 6. 绘图与独立交叉验证
 
 ```bash
 python3 tool/plot_ft_gravity_data.py tool/ft_gravity_samples.csv --show
+# 历史坐标混用数据的修复候选，绘图会按 JSON 修复标记同步重建传感器朝向：
+python3 tool/plot_ft_gravity_data.py tool/ft_gravity_samples.csv \
+  --identified logs/force_direction_audit/candidate_tool0_repaired_bounded4.json \
+  --output logs/force_direction_audit/candidate_gravity_compensation.png
 # → tool/ft_gravity_samples_gravity_comparison.png
 ```
 

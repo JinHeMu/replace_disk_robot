@@ -15,12 +15,12 @@ r_sc is the sensor-origin-to-payload-CoM vector, and b_f/b_tau are constant
 sensor offsets.  The signed gravity vector makes the fit independent of the
 sensor's force sign convention; mass is norm(h_b) / g.
 
-h_b is a free 3D vector, so gravity does not have to be parallel to base -Z:
-the tilt of the chassis (or of the floor it stands on) is estimated together
-with everything else instead of being assumed away, and only norm(h_b) enters
-the mass.  The fitted direction is reported as ``gravity_tilt_deg`` and
-``gravity_tilt_azimuth_deg`` (the base-XY direction the base slopes towards),
-which an independent inclinometer reading can be compared against.
+By default the physical down direction is restricted to a 4-degree cone about
+base -Z. Both sensor load signs are allowed. This fits mass and bias under the
+direction constraint, rather than clipping a free fit afterwards. A zero tilt
+limit fixes gravity to base vertical; --gravity-mode free retains the original
+unrestricted fit for diagnostics or a verified tilted installation. Constrained
+tilt is a model assumption, not an independent inclinometer measurement.
 """
 
 from __future__ import annotations
@@ -171,6 +171,25 @@ def load_all_rows(path: Path, min_samples: int) -> tuple[list[StaticPose], dict[
     return poses, transforms
 
 
+def repair_stale_tool0_extrinsics(poses, transforms):
+    """Repair captures made AFTER tool0 Z-180 change with BEFORE-change extrinsics.
+
+    R_bs_logged = R_bt_new R_ts_old. Rebuild the physical sensor orientation as
+    R_bt_new D R_ts_old; also express the lever in new tool axes. This is not
+    needed for a pre-change capture, whose physical sensor orientation is valid.
+    """
+    required = {"rotation_sensor_to_tool", "tool_to_sensor_m"}
+    if not required.issubset(transforms):
+        raise ValueError("stale tool0 repair requires recorded sensor rotation and lever")
+    old = transforms["rotation_sensor_to_tool"]
+    flip = np.diag([-1., -1., 1.])
+    repaired = [StaticPose(p.capture_id, p.samples,
+                          p.rotation_base_sensor @ old.T @ flip @ old,
+                          p.force_sensor_n, p.torque_sensor_nm) for p in poses]
+    return repaired, {**transforms, "rotation_sensor_to_tool": flip @ old,
+                      "tool_to_sensor_m": flip @ transforms["tool_to_sensor_m"]}
+
+
 def _robust_lstsq(
     matrix: np.ndarray,
     target: np.ndarray,
@@ -178,16 +197,18 @@ def _robust_lstsq(
     blocks: int,
     huber_delta: float,
     iterations: int = 20,
+    solver=None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Iteratively reweighted least squares with one weight per 3D pose."""
 
     weights = np.ones(blocks)
-    solution = np.linalg.lstsq(matrix, target, rcond=None)[0]
+    solve = solver or (lambda a, b: np.linalg.lstsq(a, b, rcond=None)[0])
+    solution = solve(matrix, target)
     for _ in range(iterations):
         row_weights = np.repeat(np.sqrt(weights), 3)
         weighted_matrix = matrix * row_weights[:, None]
         weighted_target = target * row_weights
-        updated = np.linalg.lstsq(weighted_matrix, weighted_target, rcond=None)[0]
+        updated = solve(weighted_matrix, weighted_target)
         residual = (matrix @ updated - target).reshape(blocks, 3)
         norms = np.linalg.norm(residual, axis=1)
         median = float(np.median(norms))
@@ -209,12 +230,90 @@ def _skew(vector: np.ndarray) -> np.ndarray:
     return np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
 
 
+def _gravity_tilt(vector: np.ndarray) -> float:
+    norm = float(np.linalg.norm(vector))
+    if norm < 1e-12:
+        return 0.0
+    return math.degrees(math.acos(float(np.clip(abs(vector[2]) / norm, 0.0, 1.0))))
+
+
+def _bounded_force_solution(matrix, target, tilt_limit_deg):
+    """Solve weighted force/bias LS over the two signed vertical cones.
+
+    Eliminate bias first. If the unconstrained optimum is outside the cones,
+    the constrained optimum lies on their boundary (or at zero load). Profile
+    out signed load magnitude and minimize the remaining periodic azimuth.
+    This uses only NumPy and refits bias for the selected gravity vector.
+    """
+    a, b = matrix[:, :3], matrix[:, 3:]
+    centered_a = a - b @ np.linalg.lstsq(b, a, rcond=None)[0]
+    centered_y = target - b @ np.linalg.lstsq(b, target, rcond=None)[0]
+    free = np.linalg.lstsq(centered_a, centered_y, rcond=None)[0]
+    if _gravity_tilt(free) <= tilt_limit_deg + 1e-10:
+        gravity = free
+    else:
+        quadratic = centered_a.T @ centered_a
+        linear = centered_a.T @ centered_y
+        tilt = np.deg2rad(tilt_limit_deg)
+
+        def direction(azimuth):
+            azimuth = np.asarray(azimuth)
+            return np.stack((np.sin(tilt) * np.cos(azimuth),
+                             np.sin(tilt) * np.sin(azimuth),
+                             -np.cos(tilt) * np.ones_like(azimuth)), axis=-1)
+
+        def objective(azimuth):
+            unit = direction(azimuth)
+            numerator = unit @ linear
+            denominator = np.einsum("...i,ij,...j->...", unit, quadratic, unit)
+            return -numerator**2 / np.maximum(denominator, 1e-30)
+
+        if tilt_limit_deg == 0:
+            unit = np.array([0., 0., -1.])
+        else:
+            grid = np.linspace(0, 2*np.pi, 720, endpoint=False)
+            scores = objective(grid)
+            minima = np.flatnonzero((scores <= np.roll(scores, 1)) &
+                                   (scores <= np.roll(scores, -1)))
+            # An exactly flat objective needs only one representative.
+            if np.ptp(scores) < 1e-14:
+                minima = np.array([0])
+            candidates = []
+            ratio = (np.sqrt(5.) - 1.) / 2.
+            for index in minima:
+                left, right = grid[index] - 2*np.pi/720, grid[index] + 2*np.pi/720
+                for _ in range(60):
+                    x = right - ratio*(right-left)
+                    y = left + ratio*(right-left)
+                    if objective(x) <= objective(y):
+                        right = y
+                    else:
+                        left = x
+                candidates.append((left+right)/2)
+            azimuth = min(candidates, key=objective)
+            unit = direction(azimuth)
+        magnitude = (unit @ linear) / (unit @ quadratic @ unit)
+        gravity = magnitude * unit
+    bias = np.linalg.lstsq(b, target-a@gravity, rcond=None)[0]
+    return np.r_[gravity, bias]
+
+
 def identify_payload(
     poses: list[StaticPose],
     *,
     gravity_m_s2: float = 9.80665,
     huber_delta: float = 2.5,
+    gravity_mode: str = "bounded",
+    gravity_tilt_limit_deg: float = 4.0,
 ) -> dict[str, object]:
+    if gravity_mode not in ("bounded", "free"):
+        raise ValueError("gravity_mode must be bounded or free")
+    if not np.isfinite(gravity_tilt_limit_deg) or not 0 <= gravity_tilt_limit_deg < 90:
+        raise ValueError("gravity_tilt_limit_deg must be finite and in [0, 90)")
+    if not np.isfinite(gravity_m_s2) or gravity_m_s2 <= 0:
+        raise ValueError("gravity_m_s2 must be finite and positive")
+    if not np.isfinite(huber_delta) or huber_delta <= 0:
+        raise ValueError("huber_delta must be finite and positive")
     if len(poses) < 6:
         raise ValueError("at least 6 accepted static poses are required; >=12 is recommended")
     rotations = [pose.rotation_base_sensor for pose in poses]
@@ -226,9 +325,16 @@ def identify_payload(
     ])
     if np.linalg.matrix_rank(force_matrix) < 6:
         raise ValueError("force fit is rank deficient; collect more diverse tool orientations")
-    force_solution, force_weights = _robust_lstsq(
+    free_solution, free_weights = _robust_lstsq(
         force_matrix, forces.reshape(-1), blocks=len(poses), huber_delta=huber_delta
     )
+    if gravity_mode == "free":
+        force_solution, force_weights = free_solution, free_weights
+    else:
+        force_solution, force_weights = _robust_lstsq(
+            force_matrix, forces.reshape(-1), blocks=len(poses), huber_delta=huber_delta,
+            solver=lambda a, b: _bounded_force_solution(a, b, gravity_tilt_limit_deg),
+        )
     gravity_vector_base = force_solution[:3]
     force_bias = force_solution[3:]
     gravity_norm = float(np.linalg.norm(gravity_vector_base))
@@ -257,12 +363,7 @@ def identify_payload(
     force_residual = forces - predicted_force
     torque_residual = torques - predicted_torque
 
-    # The gravity vector is a free 3D quantity, so a tilted chassis is already
-    # part of the fit.  The model is sign-agnostic (a flipped sensor sign
-    # convention and an upside-down base look the same), and a robot base is
-    # never more than 90 deg from level, so the sign of the vertical component
-    # decides which way is down.  ``tilt_deg`` is then the chassis inclination
-    # and ``tilt_azimuth_deg`` the base-XY direction the chassis slopes towards.
+    # Report physical down separately from the sensor's signed gravity load.
     gravity_unit_base = gravity_vector_base / gravity_norm
     down_unit_base = (
         gravity_unit_base if gravity_unit_base[2] <= 0.0 else -gravity_unit_base
@@ -276,6 +377,9 @@ def identify_payload(
 
     return {
         "model": "static_raw_sensor_wrench",
+        "gravity_direction_model": gravity_mode,
+        "gravity_tilt_limit_deg": gravity_tilt_limit_deg if gravity_mode == "bounded" else None,
+        "unconstrained_gravity_tilt_deg": _gravity_tilt(free_solution[:3]),
         "pose_count": len(poses),
         "sample_count": sum(pose.samples for pose in poses),
         "gravity_m_s2": gravity_m_s2,
@@ -293,6 +397,7 @@ def identify_payload(
         "torque_bias_sensor_nm": torque_bias.tolist(),
         "fit": {
             "force_rms_n": float(np.sqrt(np.mean(force_residual ** 2))),
+            "unconstrained_force_rms_n": float(np.sqrt(np.mean((forces.reshape(-1)-force_matrix@free_solution)**2))),
             "force_peak_n": float(np.max(np.linalg.norm(force_residual, axis=1))),
             "torque_rms_nm": float(np.sqrt(np.mean(torque_residual ** 2))),
             "torque_peak_nm": float(np.max(np.linalg.norm(torque_residual, axis=1))),
@@ -321,13 +426,19 @@ def _parse_args() -> argparse.Namespace:
                               "accepted static window. By default every CSV row is used "
                               "directly as one quasi-static sample."))
     parser.add_argument("--gravity", type=float, default=9.80665)
+    parser.add_argument("--gravity-mode", choices=("bounded", "free"), default="bounded",
+                        help="bounded (default): constrain physical down near base -Z; free: diagnostic 3D fit")
+    parser.add_argument("--gravity-tilt-limit-deg", type=float, default=4.0,
+                        help="hard inclination bound for bounded fit (default: 4 deg; 0 fixes vertical)")
+    parser.add_argument("--repair-stale-tool0-extrinsics", action="store_true",
+                        help="repair CSV captured after tool0 Z-180 change while using old sensor extrinsics")
     parser.add_argument("--huber-delta", type=float, default=2.5)
     parser.add_argument("--max-com-m", type=float, default=0.5,
                         help="warn if identified sensor-to-CoM distance exceeds this")
     parser.add_argument("--max-tilt-deg", type=float, default=30.0,
                         help=("warn if the fitted gravity direction is more than this far from "
                               "base -Z; a tilted chassis or an inclined floor is a legitimate "
-                              "reason, and it is always part of the fit"))
+                              "reason; this is a warning threshold, not the fit constraint"))
     return parser.parse_args()
 
 
@@ -339,11 +450,19 @@ def build_warnings(
 ) -> list[str]:
     """Human-readable sanity notes for one identification result.
 
-    The fitted gravity vector is free in 3D, so a tilted chassis is not an error
-    by itself: the tilt check only catches gross frame/sign mistakes.
+    The free-fit diagnostic is retained so a tight bound cannot hide a bad
+    frame/calibration or an installation outside the assumed inclination.
     """
 
     warnings: list[str] = []
+    limit = result.get("gravity_tilt_limit_deg")
+    free_tilt = result.get("unconstrained_gravity_tilt_deg")
+    if limit is not None and free_tilt is not None and float(free_tilt) > float(limit) + .1:
+        warnings.append(
+            f"gravity constrained to {float(limit):.1f} deg, but unconstrained fit preferred "
+            f"{float(free_tilt):.1f} deg; the reported constrained tilt is a model assumption; "
+            "check sensor extrinsics, raw mode, static data and actual installation"
+        )
     tilt_deg = float(result["gravity_tilt_deg"])
     if tilt_deg > max_tilt_deg:
         warnings.append(
@@ -380,10 +499,14 @@ def main() -> None:
         else:
             poses, transforms = load_all_rows(csv_path, args.min_samples)
             pose_source = "all_csv_rows"
+        if args.repair_stale_tool0_extrinsics:
+            poses, transforms = repair_stale_tool0_extrinsics(poses, transforms)
         result = identify_payload(
-            poses, gravity_m_s2=args.gravity, huber_delta=args.huber_delta
+            poses, gravity_m_s2=args.gravity, huber_delta=args.huber_delta,
+            gravity_mode=args.gravity_mode, gravity_tilt_limit_deg=args.gravity_tilt_limit_deg,
         )
         result["pose_source"] = pose_source
+        result["stale_tool0_extrinsics_repaired"] = args.repair_stale_tool0_extrinsics
     except (OSError, ValueError) as exc:
         raise SystemExit(f"[identify] FAILED: {exc}") from exc
 
@@ -425,7 +548,8 @@ def main() -> None:
     print(
         f"[identify] gravity direction: tilt {result['gravity_tilt_deg']:.2f} deg from base -Z "
         f"(down-slope azimuth {result['gravity_tilt_azimuth_deg']:.2f} deg in base XY); "
-        "a tilted chassis is fitted here, not assumed"
+        + (f"bounded model <= {args.gravity_tilt_limit_deg:.2f} deg, not an inclination measurement"
+           if args.gravity_mode == "bounded" else "unrestricted diagnostic fit")
     )
     print(
         "[identify] CoM from sensor: "

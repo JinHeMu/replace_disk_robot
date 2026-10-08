@@ -1,0 +1,35 @@
+{
+  "mass_kg": 0.6797334343099629,
+  "signed_gravity_force_base_n": [
+    0.09655582181851177,
+    -1.5873277092095004,
+    -6.473437697944318
+  ],
+  "gravity_tilt_deg": 13.80194406967953,
+  "center_of_mass_sensor_m": [
+    0.004790133682762309,
+    0.0011019848563513998,
+    0.06656902917007552
+  ],
+  "force_bias_sensor_n": [
+    -7.726938195291662,
+    -7.26413479388207,
+    -0.9176764037945402
+  ],
+  "torque_bias_sensor_nm": [
+    0.6975947399429576,
+    -0.7474602224421977,
+    0.08379852223799826
+  ],
+  "fit": {
+    "force_rms_n": 0.10378393049394792,
+    "unconstrained_force_rms_n": 0.10378393049394792,
+    "force_peak_n": 0.5411542610449647,
+    "torque_rms_nm": 0.016549252028406448,
+    "torque_peak_nm": 0.05458432141519249,
+    "force_matrix_condition": 15.60399128213634,
+    "torque_matrix_condition": 63.1313098027178
+  },
+  "csv_old_orientation_matches_current_fk_times_old_extrinsic_error": 1.1967760116249337e-11,
+  "calibration_command_active_rows": 263
+}
