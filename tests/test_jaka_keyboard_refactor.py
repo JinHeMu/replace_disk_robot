@@ -14,7 +14,7 @@ import pytest
 
 from test_jaka_keyboard_admittance import DummyClient, LinearKinematics, _raw_sensor, _write_fit
 from replace_disk_robot.applications.jaka_keyboard import config, node
-from replace_disk_robot.applications.jaka_keyboard.log import json_value
+from replace_disk_robot.applications.common.log import json_value
 
 FIXTURE = Path(__file__).parent / "fixtures/jaka_keyboard_servo_before_refactor.py"
 spec = importlib.util.spec_from_file_location("keyboard_before_refactor", FIXTURE)

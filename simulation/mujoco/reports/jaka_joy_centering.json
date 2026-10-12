@@ -1,0 +1,91 @@
+{
+  "passed": true,
+  "request_linear_speed_m_s": 0.2,
+  "hold_duration_s": 1.0,
+  "center_duration_s": 4.0,
+  "lb_held": true,
+  "tests": [
+    {
+      "name": "center_left_axis0_-1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15754845416092433,
+      "max_post_center_travel_m": 0.0004056057627196034,
+      "restart_distance_m": 0.004513608606402199,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.159517
+    },
+    {
+      "name": "center_left_axis0_1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15758439610595448,
+      "max_post_center_travel_m": 0.00044220952328282684,
+      "restart_distance_m": 0.004469640150810368,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.160197
+    },
+    {
+      "name": "center_left_axis1_-1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15807203705034611,
+      "max_post_center_travel_m": 0.0006323859064949382,
+      "restart_distance_m": 0.004326340184879403,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.160394
+    },
+    {
+      "name": "center_left_axis1_1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15794758114432478,
+      "max_post_center_travel_m": 0.0007035761781424586,
+      "restart_distance_m": 0.00438902466644197,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.160145
+    },
+    {
+      "name": "center_left_axis0_-1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15762533838644438,
+      "max_post_center_travel_m": 0.00044222937166501646,
+      "restart_distance_m": 0.0044349553063119575,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.160261
+    },
+    {
+      "name": "center_left_axis0_1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.1576035787903241,
+      "max_post_center_travel_m": 0.00040588249610437507,
+      "restart_distance_m": 0.0045320475272840315,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.159637
+    },
+    {
+      "name": "center_left_axis1_-1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.16033281942086075,
+      "max_post_center_travel_m": 0.0005082653671264727,
+      "restart_distance_m": 0.0031879633184799644,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.163809
+    },
+    {
+      "name": "center_left_axis1_1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.16002317281161335,
+      "max_post_center_travel_m": 0.0005498703828399008,
+      "restart_distance_m": 0.0035049593769329477,
+      "fault": null,
+      "before_fix_max_post_center_travel_m": 0.16296100000000002
+    }
+  ],
+  "related_tests_passed": 106,
+  "scope": "Deterministic left-stick samples through full JakaJoyServo/force/admittance/CartesianServo/MuJoCo loop. Physical tool0 displacement, no added external load. Pre-fix figures captured from failing regressions before editing the controller. Not physical JAKA validation."
+}

@@ -513,7 +513,7 @@ def make_admittance_tracking_plot(records, output, data=None):
                                     ("target_displacement_base", "corrected ", "--"),
                                     ("nominal_displacement_base", "nominal ", ":")):
             _plot_three(axes[1, column], t, data[name][:, sl], names, prefix, style)
-        axes[1, column].set_title("Displacement from FIRST measured pose (includes keyboard motion)")
+        axes[1, column].set_title("Displacement from FIRST measured pose (includes nominal input motion)")
         _plot_three(axes[2, column], t, data["tracking_error_base"][:, sl], names)
         axes[2, column].set_title("Same-cycle corrected minus measured (feedback PRECEDES command)")
         for row in range(3):

@@ -265,6 +265,9 @@ python examples/jaka_driver_tool/jaka_edg_servo.py --dry-run --seconds 5
 # 实机键盘 Servo 的 dry-run
 python src/replace_disk_robot/applications/jaka_keyboard/jaka_keyboard_node.py --dry-run
 
+# Xbox 手柄 + MuJoCo 仿真
+python src/replace_disk_robot/applications/jaka_joy/jaka_joy_node.py
+
 # 关闭
 python examples/jaka_driver_tool/jaka_stop.py
 ```

@@ -18,6 +18,7 @@ dependencies:
   - pip
   - pip:
       - mujoco>=3.12,<4
+      - pygame>=2.6,<3
       - -e .
 
 # Keep ROS Humble and user-installed Python/native libraries out of this

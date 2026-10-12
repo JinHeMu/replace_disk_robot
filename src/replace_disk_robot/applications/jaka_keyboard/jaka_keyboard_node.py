@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Start the modular JAKA keyboard controller with optional cycle logging.
+"""Keyboard entrypoint with cycle logging.
 
-The original hardware-validated controller is kept alongside this entry.
+The keyboard frontend and its existing configuration remain independent.
 """
 from __future__ import annotations
 

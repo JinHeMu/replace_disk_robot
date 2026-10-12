@@ -141,7 +141,7 @@ class WrenchPipeline:
             torque_deadband_nm=self.args.deadband_torque,
         ))
         print(
-            f"[keyboard] gravity compensation ON: {path} "
+            f"[jaka] gravity compensation ON: {path} "
             f"mass={mass:.6f} kg, |h|={float(np.linalg.norm(h_base)):.4f} N"
         )
 
@@ -183,7 +183,7 @@ class WrenchPipeline:
         )
         self.wrench_processor.reset()
         print(
-            "[keyboard] gravity-compensated tare: "
+            "[jaka] gravity-compensated tare: "
             f"offset={fmt_array(offset, 4)}"
         )
 

@@ -74,7 +74,7 @@ from replace_disk_robot.core.rotation import (
 )
 from replace_disk_robot.kinematics.jaka import JakaKinematics
 from replace_disk_robot.safety import ForceLimitGuard
-from replace_disk_robot.applications.jaka_keyboard.wrench import (
+from replace_disk_robot.applications.common.wrench import (
     default_tool0_ft_transforms,
 )
 

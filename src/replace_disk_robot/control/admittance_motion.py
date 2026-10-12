@@ -25,6 +25,7 @@ from numpy.typing import ArrayLike, NDArray
 from ..core.ports import AdmittanceControllerPort
 from ..core.rotation import (
     multiply,
+    quaternion_from_rotation_matrix,
     quaternion_from_rotation_vector,
     rotation_matrix,
 )
@@ -138,6 +139,29 @@ class KeyboardAdmittanceController:
         self._corrected = measured_pose
         self.admittance.reset(
             self._tcp_origin() if self._tcp_frame_id else measured_pose
+        )
+
+    def reanchor(self, measured_pose: Pose, *, translation: bool, rotation: bool) -> None:
+        """Cancel pending nominal motion in selected channels, preserving compliance.
+
+        A jog client can call this on release instead of chasing an integrated
+        target that the position servo could not reach. Offset and velocity are
+        retained so external-force response continues without a compliance reset.
+        """
+        self._check_frame(measured_pose, "measured_pose")
+        offset = self.admittance.state().offset
+        measured_rotation = rotation_matrix(measured_pose.quaternion_wxyz)
+        offset_rotation = measured_rotation if self._tcp_frame_id else np.eye(3)
+        displacement = offset_rotation @ offset[:3]
+        delta_rotation = rotation_matrix(quaternion_from_rotation_vector(offset_rotation @ offset[3:]))
+        position = (measured_pose.position_m - displacement
+                    if translation else self._nominal.position_m)
+        quaternion = (quaternion_from_rotation_matrix(delta_rotation.T @ measured_rotation)
+                      if rotation else self._nominal.quaternion_wxyz)
+        self._nominal = Pose(self._frame_id, position, quaternion)
+        self._corrected = Pose(
+            self._frame_id, position + displacement,
+            quaternion_from_rotation_matrix(delta_rotation @ rotation_matrix(quaternion)),
         )
 
     def update(

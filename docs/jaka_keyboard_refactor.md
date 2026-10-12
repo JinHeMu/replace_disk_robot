@@ -9,17 +9,24 @@
 完整重构前源码保存于 `tests/fixtures/jaka_keyboard_servo_before_refactor.py`，用于离线逐周期对照；不要将测试夹具作为新的实机入口。
 迁移前源码快照 SHA-256：`8e6e1069dbd39acee79405d1bba54cf1ac822d675644f87de7f06dc895572902`。
 
-新增应用目录 `src/replace_disk_robot/applications/jaka_keyboard/`：
+当前应用目录拆为三个 Python 功能包：`applications/jaka_keyboard/`、`applications/jaka_joy/` 和 `applications/common/`。
+键盘与手柄分别使用共用 `common.node.JakaServo`，两者不互相导入。原键盘入口与 YAML 路径保留，手柄入口迁至 `applications/jaka_joy/jaka_joy_node.py`。
 
 | 文件 | 职责 |
 |---|---|
-| `config.py` | 参数定义、默认实机配置、命令行覆盖、校验 |
-| `wrench.py` | 负载参数、传感器/TCP 变换、补偿、去皮、滤波；消费节点已读取的 EDG 状态 |
-| `reference.py` | 按键坐标转换、名义参考、已有导纳的组合、输出偏移钳位 |
-| `node.py` | 组装模块、启动/停止/恢复/关闭、单周期控制、唯一命令出口 |
-| `frontend.py` | GLFW 按键、焦点、窗口和独立绘图进程 |
-| `log.py` | 同周期前后快照、后台日志写入、事件及实验快照 |
-| `analysis.py` | 完全离线的日志完整性、独立导纳公式和参考跟踪检查 |
+| `jaka_keyboard/config.py`、`jaka_joy/config.py` | 各应用默认参数文件与输入专用命令行选项 |
+| `jaka_keyboard/node.py`、`reference.py`、`frontend.py` | 键盘状态、坐标转换、焦点事件和窗口 |
+| `jaka_joy/joy_node.py`、`joy_frontend.py` | 手柄输入、坐标转换、LB/B/A 状态机、回中重锚定和窗口 |
+| `jaka_joy/joy_simulation.py`、`joy_validation.py` | 手柄仿真组装及自动闭环验证 |
+| `common/config.py` | 共用参数定义、文件读取、命令行覆盖和校验 |
+| `common/wrench.py` | 传感器/TCP 变换、重力补偿、去皮、滤波；消费当周期 EDG 状态 |
+| `common/reference.py` | 名义参考、已有导纳组合及偏移钳位；不创建输入设备 |
+| `common/node.py` | 共用生命周期、单周期控制及唯一命令出口 |
+| `common/log.py`、`analysis.py` | 同周期快照、后台日志、源文件记录和离线分析 |
+| `common/simulation.py` | 共用 MuJoCo 反馈、位置执行器和模型已知负载补偿 |
+
+共用日志按实际应用路径记录源码快照，手柄日志不再引用键盘目录。
+键盘旧版 `jaka_keyboard_servo.py` 继续保留，仅改为从 `common.wrench` 导入力坐标变换。
 
 `adapters/jaka/session.py` 成为 EDG 会话及单调时钟调度的实现位置，旧 `jaka_common.py` 保留兼容导出。
 节点可显式注入测试运动学、反馈客户端和数据观察者。无窗口入口直接使用节点模块，无需导入 GLFW。

@@ -5,6 +5,9 @@
 | `jaka_keyboard_node.py` | 新版启动入口：模块化控制，支持周期日志 |
 | `jaka_keyboard_servo.py` | 保留的原始控制脚本，适配新参数名称，控制逻辑不变 |
 | `jaka_keyboard_servo_config.yaml` | 两个入口共用的默认参数 |
+| `node.py` / `reference.py` / `frontend.py` | 键盘应用组装、按键坐标映射、焦点和窗口操作 |
+
+本目录只保留键盘应用。共用控制、力处理和日志分析位于 [common](../common/README.md)，手柄应用位于 [jaka_joy](../jaka_joy/README.md)。
 
 使用已有的 JAKA SDK Python 环境。下列命令在仓库根目录执行：
 

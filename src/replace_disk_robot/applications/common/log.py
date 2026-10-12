@@ -15,6 +15,7 @@ from pathlib import Path
 import platform
 from queue import Empty, Full, Queue
 import subprocess
+import sys
 from threading import Thread
 import time
 
@@ -37,7 +38,7 @@ def json_value(value):
         return json_value(asdict(value))
     if isinstance(value, dict):
         return {str(key): json_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, (list, tuple, set, frozenset)):
         return [json_value(item) for item in value]
     return value
 
@@ -77,11 +78,12 @@ class CycleCapture:
             "schema_version": SCHEMA_VERSION, "sequence": sequence,
             "elapsed_s": elapsed_s, "dt_s": dt_s,
             "tick_start_monotonic_ns": time.perf_counter_ns(),
-            "pressed_before": sorted(app.keys.pressed),
+            "pressed_before": sorted(getattr(getattr(app, "keys", None), "pressed", ())),
             "admittance_before": admittance_snapshot(app),
             "fault_before": app.servo.fault,
             "admittance_updated": False, "command_sent": False,
         }
+        self.data.update(app.input_snapshot())
 
     def feedback(self, app, state, measured):
         self.data.update({
@@ -132,7 +134,7 @@ class CycleCapture:
             "tick_end_monotonic_ns": time.perf_counter_ns(),
             "status": app.status, "fault": app.servo.fault,
             "dry_run": bool(app.args.dry_run), "error": error,
-            "pressed_after": sorted(app.keys.pressed),
+            "pressed_after": sorted(getattr(getattr(app, "keys", None), "pressed", ())),
             "admittance_after": admittance_snapshot(app),
         })
         return self.data
@@ -254,9 +256,13 @@ def session_metadata(args, app, project_root):
     paths = [Path(args.config), PROJECT_JAKA_URDF, Path(__file__),
              Path(__file__).with_name("node.py"), Path(__file__).with_name("reference.py"),
              Path(__file__).with_name("wrench.py"), Path(__file__).with_name("config.py"),
-             Path(__file__).with_name("frontend.py"),
+             Path(__file__).with_name("simulation.py"),
              Path(admittance.__file__), Path(admittance_motion.__file__),
              Path(servo.__file__), Path(force_processing.__file__)]
+    paths.extend(app.input_source_paths())
+    app_module = sys.modules[type(app).__module__]
+    app_directory = Path(app_module.__file__).parent
+    paths.extend(sorted(app_directory.glob("*.py")))
     if getattr(args, "gravity_json", None):
         paths.append(Path(args.gravity_json))
     for path in paths:

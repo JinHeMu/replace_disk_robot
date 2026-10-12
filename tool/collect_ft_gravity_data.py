@@ -54,7 +54,7 @@ from replace_disk_robot.applications.jaka_keyboard.jaka_keyboard_servo import ( 
     _KEY_TO_NAME,
     _window_title,
 )
-from replace_disk_robot.applications.jaka_keyboard.wrench import (  # noqa: E402
+from replace_disk_robot.applications.common.wrench import (  # noqa: E402
     default_tool0_ft_transforms,
 )
 from replace_disk_robot.core.rotation import rotation_matrix  # noqa: E402

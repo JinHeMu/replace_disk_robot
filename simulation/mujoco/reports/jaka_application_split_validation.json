@@ -1,0 +1,67 @@
+{
+  "passed": true,
+  "scope": "Pre-split modular keyboard versus split JakaKeyboardServo, same MuJoCo model feedback, F/T pipeline, CartesianServo, force gate and actuators. Synthetic keys and focus/stop/resume. No physical robot.",
+  "tests": [
+    {
+      "command_frame": "base",
+      "admittance": false,
+      "cycles": 750,
+      "max_trace_difference": 0.0,
+      "passed": true
+    },
+    {
+      "command_frame": "base",
+      "admittance": true,
+      "cycles": 750,
+      "max_trace_difference": 0.0,
+      "passed": true
+    },
+    {
+      "command_frame": "tool",
+      "admittance": false,
+      "cycles": 750,
+      "max_trace_difference": 0.0,
+      "passed": true
+    },
+    {
+      "command_frame": "tool",
+      "admittance": true,
+      "cycles": 750,
+      "max_trace_difference": 0.0,
+      "passed": true
+    }
+  ],
+  "joy_validation": {
+    "passed": true,
+    "passed_tests": 53,
+    "total_tests": 53,
+    "identical_to_pre_split": true
+  },
+  "live_xbox_simulation": {
+    "seconds": 2,
+    "summary": {
+      "accepted": 759,
+      "written": 759,
+      "dropped": 0,
+      "pending": 0,
+      "written_samples": 251,
+      "observer_errors": 0,
+      "writer_error": null,
+      "writer_stopped": true,
+      "complete": true
+    },
+    "all_samples_connected": true,
+    "keyboard_sources_absent": true,
+    "scope": "Physical Xbox idle input to headless MuJoCo; no human button presses, no physical robot."
+  },
+  "unit_tests": {
+    "passed": 143,
+    "pre_existing_failures": 31,
+    "current_failures": 31,
+    "new_failures": []
+  },
+  "config_files_unchanged": {
+    "jaka_keyboard_servo_config.yaml": true,
+    "jaka_joy_config.yaml": true
+  }
+}

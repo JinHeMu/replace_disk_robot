@@ -17,6 +17,32 @@ from replace_disk_robot.core import CartesianJog, Pose, Wrench
 from replace_disk_robot.core.rotation import rotation_matrix
 
 
+@pytest.mark.parametrize("tcp_frame", [None, "tool0"])
+@pytest.mark.parametrize("translation,rotation", [(True, False), (False, True), (True, True)])
+def test_reanchor_cancels_selected_backlog_and_preserves_compliance(tcp_frame, translation, rotation):
+    controller = admittance(frame_id=tcp_frame or "world", stiffness=0.)
+    motion = KeyboardAdmittanceController(controller, pose(), MotionReferenceConfig(),
+                                          tcp_frame_id=tcp_frame)
+    measured = pose((.02, -.01, .03), (np.cos(.2), 0., 0., np.sin(.2)))
+    jog = CartesianJog("world", [.2, 0., 0.], [0., .1, 0.])
+    wrench = Wrench(tcp_frame or "world", [3., 1., 0.], [0., 0., .2])
+    for _ in range(10):
+        motion.update(jog, wrench, measured, .01)
+    before, nominal = motion.state(), motion.nominal_pose
+    motion.reanchor(measured, translation=translation, rotation=rotation)
+    np.testing.assert_array_equal(motion.state().offset, before.offset)
+    np.testing.assert_array_equal(motion.state().velocity, before.velocity)
+    if translation:
+        np.testing.assert_allclose(motion.corrected_pose.position_m, measured.position_m, atol=1e-12)
+    else:
+        np.testing.assert_array_equal(motion.nominal_pose.position_m, nominal.position_m)
+    if rotation:
+        np.testing.assert_allclose(rotation_matrix(motion.corrected_pose.quaternion_wxyz),
+                                   rotation_matrix(measured.quaternion_wxyz), atol=1e-12)
+    else:
+        np.testing.assert_array_equal(motion.nominal_pose.quaternion_wxyz, nominal.quaternion_wxyz)
+
+
 def pose(position=(0.0, 0.0, 0.0), quaternion=(1.0, 0.0, 0.0, 0.0)) -> Pose:
     return Pose("world", position, quaternion)
 

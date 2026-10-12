@@ -3,6 +3,7 @@ from .admittance import AdmittanceConfig, AdmittanceController
 from .admittance_motion import KeyboardAdmittanceController, MotionReferenceConfig
 from .servo import CartesianJog, CartesianServo, ServoConfig
 from .key_control import KeyControl
+from .joy_control import JoyControl, JoySample
 from .trajectory import (
     ExecutionState,
     ExecutionStatus,
@@ -20,6 +21,8 @@ __all__ = [
     'ExecutionStatus',
     'KeyboardAdmittanceController',
     'KeyControl',
+    'JoyControl',
+    'JoySample',
     'MotionReferenceConfig',
     'ServoConfig',
     'TrajectoryExecutionError',

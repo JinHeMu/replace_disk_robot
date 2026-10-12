@@ -11,8 +11,8 @@ import pytest
 from test_jaka_keyboard_admittance import DummyClient, LinearKinematics, _raw_sensor, _write_fit
 from test_jaka_keyboard_refactor import make_pair, assert_same
 from replace_disk_robot.applications.jaka_keyboard import config, node
-from replace_disk_robot.applications.jaka_keyboard.analysis import analyze_session
-from replace_disk_robot.applications.jaka_keyboard.log import AsyncRecorder, CycleCapture
+from replace_disk_robot.applications.common.analysis import analyze_session
+from replace_disk_robot.applications.common.log import AsyncRecorder, CycleCapture
 
 
 def logged_app(monkeypatch, tmp_path, *, dry_run=False):
@@ -244,7 +244,7 @@ def test_sdk_send_failure_preserves_exception_and_logs_attempt(monkeypatch, tmp_
 
 
 def test_wrench_observation_failure_does_not_fault_control(monkeypatch, tmp_path):
-    from replace_disk_robot.applications.jaka_keyboard import wrench
+    from replace_disk_robot.applications.common import wrench
     old, new, oc, nc, _, _, captures = make_pair(monkeypatch, tmp_path, record=True)
     def failed_diagnostic(*args, **kwargs):
         raise RuntimeError("force diagnostic failed")

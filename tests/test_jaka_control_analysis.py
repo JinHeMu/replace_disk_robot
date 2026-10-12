@@ -5,7 +5,7 @@ import json
 import numpy as np
 import pytest
 
-from replace_disk_robot.applications.jaka_keyboard.analysis import (
+from replace_disk_robot.applications.common.analysis import (
     control_analysis, main, write_readable_report,
 )
 from replace_disk_robot.core.rotation import quaternion_from_rotation_vector
@@ -138,7 +138,7 @@ def test_no_admittance_and_empty_log_can_be_reported(tmp_path):
 def test_cli_writes_tables_and_three_plots(tmp_path, monkeypatch):
     pytest.importorskip("matplotlib")
     import sys
-    from replace_disk_robot.applications.jaka_keyboard import analysis
+    from replace_disk_robot.applications.common import analysis
     rows = [sample(), sample(2)]
     sections, _, _ = control_analysis(rows)
     report = {"rows": 2, "recording_complete": True, "discrete_equation_matches": True, **sections}

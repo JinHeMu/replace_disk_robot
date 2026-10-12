@@ -15,6 +15,7 @@ mujoco = ["mujoco>=3.1", "Pillow>=9.0"]
 kinematics = ["pin>=3,<5"]
 test = ["pytest>=8,<9"]
 visual = ["matplotlib>=3.8"]
+joy = ["pygame>=2.6,<3", "PyYAML>=6"]
 
 [tool.pytest.ini_options]
 # Keep unrelated user/ROS pytest entry points out of this standalone package.
@@ -33,3 +34,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "replace_disk_robot.applications.jaka_keyboard" = ["*.yaml"]
+"replace_disk_robot.applications.jaka_joy" = ["*.yaml"]
