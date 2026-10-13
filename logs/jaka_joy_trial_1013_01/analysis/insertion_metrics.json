@@ -1,0 +1,899 @@
+{
+  "scope": "Recorded data / independent math; not a new contact simulation or hardware acceptance.",
+  "audit": {
+    "rows": 13354,
+    "duration_s": 106.82412842099995,
+    "input_sha256": "54766ac218f8205b027f914c0e2f87c2378c90e87a828628232ff317e4ffd970",
+    "input_bytes": 85551718,
+    "malformed_lines": 0,
+    "summary": {
+      "accepted": 40126,
+      "written": 40126,
+      "dropped": 0,
+      "pending": 0,
+      "written_samples": 13354,
+      "observer_errors": 0,
+      "writer_error": null,
+      "writer_stopped": true,
+      "complete": true
+    },
+    "incomplete_wrench_rows": [],
+    "active_windows_s": [
+      [
+        2.128114019999998,
+        7.696120496999924
+      ],
+      [
+        13.576138312000012,
+        55.664150405999976
+      ],
+      [
+        56.27211990799992,
+        68.23211948099993
+      ],
+      [
+        68.43212533500002,
+        80.91217162800001
+      ],
+      [
+        85.67217259799997,
+        102.90415538199989
+      ]
+    ],
+    "force_stop_times_s": [
+      7.704123585999923,
+      7.736118218999991,
+      7.760157303000028,
+      7.784156899999971,
+      7.808128473000011,
+      7.832200489999991,
+      7.872181414000011
+    ],
+    "servo_mode": "command_trajectory_feedforward",
+    "source_mismatches": [],
+    "independent_fk_max_position_error_m": 6.661338147750939e-16,
+    "compensation_max_residual": 1.2434497875801753e-14,
+    "wrench_transform_max_residual": 4.263256414560601e-14,
+    "transported_filter_max_residual": 9.547918011776346e-15,
+    "deadband_max_residual": 0.0,
+    "admittance_max_residual": 8.673617379884035e-19,
+    "offset_application_max_residual_m": 9.71445146547012e-17,
+    "reference_to_command_rms_mm": 0.009990284942504967,
+    "timing_ms": {
+      "feedback_read": {
+        "median": 0.044212,
+        "p95": 0.06455099999999994,
+        "max": 0.17523
+      },
+      "force_processing": {
+        "median": 0.482306,
+        "p95": 0.6965620499999999,
+        "max": 1.912593
+      },
+      "force_ready_to_reference": {
+        "median": 0.486113,
+        "p95": 0.7344623499999999,
+        "max": 1.32734
+      },
+      "reference_to_servo": {
+        "median": 0.30082949999999997,
+        "p95": 0.4501674999999998,
+        "max": 4.415164
+      },
+      "tick": {
+        "median": 1.632809,
+        "p95": 2.1281968499999997,
+        "max": 7.415796
+      }
+    }
+  },
+  "geometry": {
+    "urdf_sensor_link": "jk_se_vi_200_link",
+    "xml_sensor_site": "tcp_fts_site",
+    "urdf_sensor_to_tool_rotation": [
+      [
+        -0.7071761897835767,
+        0.7070373657757998,
+        1.1819775523373716e-22
+      ],
+      [
+        -0.7070373657758,
+        -0.7071761897835768,
+        3.7774813889458237e-22
+      ],
+      [
+        2.115281318945168e-23,
+        -4.465129825637835e-22,
+        0.9999999999999997
+      ]
+    ],
+    "urdf_tool_to_sensor_m": [
+      2.596103687330408e-19,
+      -2.5973794332158945e-19,
+      -0.19499999999999995
+    ],
+    "xml_sensor_to_tool_rotation": [
+      [
+        -0.7071761897835783,
+        0.7070373657758012,
+        -1.5052955716313274e-16
+      ],
+      [
+        -0.7070373657758012,
+        -0.7071761897835782,
+        4.830126008134721e-18
+      ],
+      [
+        -1.6104474634072875e-16,
+        2.614267585502328e-16,
+        1.0000000000000018
+      ]
+    ],
+    "xml_tool_to_sensor_m": [
+      -3.824955160853458e-17,
+      -1.140603724682914e-17,
+      -0.1950000000000003
+    ],
+    "logged_sensor_to_tool_rotation": [
+      [
+        -0.7071067811865471,
+        0.7071067811865474,
+        -6.711218596046747e-17
+      ],
+      [
+        -0.6644259853128232,
+        -0.6644259853128232,
+        -0.3421640251139344
+      ],
+      [
+        -0.24194650243614702,
+        -0.24194650243614685,
+        0.9396402396225004
+      ]
+    ],
+    "logged_tool_to_sensor_m": [
+      0.0,
+      0.0,
+      -0.195
+    ],
+    "rotation_difference_axis_angle_deg": [
+      20.008773117540365,
+      -0.0009820645747874697,
+      0.00556707259485283
+    ],
+    "model_pure_axial_minus5N_in_logged_tool_axes": [
+      3.3556258325061476e-16,
+      1.7108201255696716,
+      -4.698201198112501
+    ],
+    "user_measured_sensor_surface_to_disk_edge_m": 0.195,
+    "measurement_caveat": "Surface is not necessarily sensor measurement origin; lateral offset/axes still require verification."
+  },
+  "effective_args": {
+    "config": "/home/a/replace_disk_robot/src/replace_disk_robot/applications/jaka_joy/jaka_joy_config.yaml",
+    "robot_ip": "10.5.5.100",
+    "local_ip": "10.5.5.127",
+    "rate_hz": 125.0,
+    "linear_speed": 0.005,
+    "angular_speed_deg": 0.5,
+    "command_frame": "base",
+    "seconds": 0.0,
+    "headless": false,
+    "dry_run": false,
+    "plot_wrench_enable": true,
+    "max_force_n": 15.0,
+    "max_torque_nm": 3.0,
+    "max_joint_error_rad": 0.15,
+    "torque_sensor_mode": 1,
+    "tare_samples": 50,
+    "tare_period_ms": 10.0,
+    "tare_enable": false,
+    "tare_compensated": true,
+    "alpha": 0.2,
+    "deadband_force": 0.5,
+    "deadband_torque": 0.2,
+    "identity_transform": false,
+    "gravity_json": "/home/a/replace_disk_robot/tool/ft_gravity_samples_identified.json",
+    "gravity_compensation_enable": true,
+    "admittance": true,
+    "admittance_axes": "all",
+    "adm_disable_axes": [],
+    "adm_mass": [
+      20.0,
+      20.0,
+      20.0,
+      2.0,
+      2.0,
+      2.0
+    ],
+    "adm_damping": [
+      300.0,
+      300.0,
+      300.0,
+      15.0,
+      15.0,
+      15.0
+    ],
+    "adm_stiffness": [
+      30.0,
+      30.0,
+      30.0,
+      2.0,
+      2.0,
+      2.0
+    ],
+    "adm_max_velocity": [
+      0.005,
+      0.005,
+      0.005,
+      0.01,
+      0.01,
+      0.01
+    ],
+    "adm_max_offset_m": 0.2,
+    "adm_max_offset_deg": 10.0,
+    "log_dir": "/home/a/replace_disk_robot/logs/jaka_joy_trial_1013_01",
+    "log_queue_size": 4096,
+    "backend": "real",
+    "controller_index": 0,
+    "joy_deadzone": 0.15,
+    "joy_precision_scale": 0.25,
+    "joy_timeout_s": 0.15,
+    "keyframe": "low",
+    "probe": false,
+    "validate": false,
+    "output": null
+  },
+  "angular_jog_peak_rad_s": 0.0,
+  "cancellation": {
+    "free_motion": {
+      "window_s": [
+        34.00015638799994,
+        36.99210360699999
+      ],
+      "rows": 375,
+      "insertion_direction_base": [
+        0.0019900759099435476,
+        0.9999972406577596,
+        0.0012483087515946512
+      ],
+      "axial_displacement_mm": {
+        "nominal": 14.339588049407402,
+        "compliance": 0.0,
+        "corrected_reference": 14.339588049407402,
+        "final_command": 14.33932053336833,
+        "actual": 14.13952473266653
+      },
+      "axial_average_speed_mm_s": {
+        "nominal": 4.792727611752413,
+        "compliance": 0.0,
+        "corrected_reference": 4.792727611752413,
+        "final_command": 4.792638199734256,
+        "actual": 4.725860350368126
+      },
+      "forward_jog_average_mm_s": 4.789275107131058,
+      "admittance_tool_z_average_mm_s": 0.0,
+      "axial_velocity_clipped_percent": 0.0,
+      "axial_offset_start_end_mm": [
+        0.0,
+        0.0
+      ],
+      "force_tool_z_mean_n": 0.0,
+      "offset_update_axial_average_mm_s": 0.0,
+      "rotation_of_existing_offset_axial_average_mm_s": 0.0,
+      "guard_trip_count": 0,
+      "status_counts": {
+        "tracking": 375
+      },
+      "cancellation_percent": -0.0
+    },
+    "first_contact": {
+      "window_s": [
+        38.00010491199998,
+        55.392151689
+      ],
+      "rows": 2175,
+      "insertion_direction_base": [
+        0.0019900759099435476,
+        0.9999972406577596,
+        0.0012483087515946512
+      ],
+      "axial_displacement_mm": {
+        "nominal": 86.95711174884312,
+        "compliance": -70.19437097026598,
+        "corrected_reference": 16.76274077857714,
+        "final_command": 16.770283142120803,
+        "actual": 17.22093046683478
+      },
+      "axial_average_speed_mm_s": {
+        "nominal": 4.9998204848344185,
+        "compliance": -4.036004035079643,
+        "corrected_reference": 0.9638164497547752,
+        "final_command": 0.9642501171454149,
+        "actual": 0.9901612321793242
+      },
+      "forward_jog_average_mm_s": 4.999820484834558,
+      "admittance_tool_z_average_mm_s": -4.032753889558827,
+      "axial_velocity_clipped_percent": 42.06896551724138,
+      "axial_offset_start_end_mm": [
+        -0.06387937291730514,
+        -70.22035410734848
+      ],
+      "force_tool_z_mean_n": -2.4846607114596244,
+      "offset_update_axial_average_mm_s": -4.037701106237174,
+      "rotation_of_existing_offset_axial_average_mm_s": 0.0016970711575353757,
+      "guard_trip_count": 0,
+      "status_counts": {
+        "tracking": 2175
+      },
+      "cancellation_percent": 80.7229789013776
+    },
+    "near_stall": {
+      "window_s": [
+        50.000219511999944,
+        53.99212503799993
+      ],
+      "rows": 500,
+      "insertion_direction_base": [
+        0.0019900759099435476,
+        0.9999972406577596,
+        0.0012483087515946512
+      ],
+      "axial_displacement_mm": {
+        "nominal": 19.958811022418345,
+        "compliance": -19.26993354155085,
+        "corrected_reference": 0.6888774808674943,
+        "final_command": 0.6893392451398693,
+        "actual": 0.7636813795686532
+      },
+      "axial_average_speed_mm_s": {
+        "nominal": 4.999820484834399,
+        "compliance": -4.827251901640053,
+        "corrected_reference": 0.17256858319434523,
+        "final_command": 0.17268425834481343,
+        "actual": 0.19130747824432773
+      },
+      "forward_jog_average_mm_s": 4.999820484834558,
+      "admittance_tool_z_average_mm_s": -4.826113068153702,
+      "axial_velocity_clipped_percent": 77.0,
+      "axial_offset_start_end_mm": [
+        -44.22786394644564,
+        -63.49184088098432
+      ],
+      "force_tool_z_mean_n": -3.667090258893016,
+      "offset_update_axial_average_mm_s": -4.8303202640059215,
+      "rotation_of_existing_offset_axial_average_mm_s": 0.0030683623658524723,
+      "guard_trip_count": 0,
+      "status_counts": {
+        "tracking": 500
+      },
+      "cancellation_percent": 96.54850441695284
+    },
+    "stall_after_resume": {
+      "window_s": [
+        59.000117124999974,
+        61.99214932699999
+      ],
+      "rows": 375,
+      "insertion_direction_base": [
+        -0.020938353821075374,
+        0.9997739071778001,
+        -0.0037040337065870066
+      ],
+      "axial_displacement_mm": {
+        "nominal": 14.959623894843862,
+        "compliance": -14.950595834176138,
+        "corrected_reference": 0.009028060667723329,
+        "final_command": 0.006677376710226,
+        "actual": 0.05478691067461927
+      },
+      "axial_average_speed_mm_s": {
+        "nominal": 4.999820484834398,
+        "compliance": -4.99680311735363,
+        "corrected_reference": 0.0030173674807672654,
+        "final_command": 0.00223171953355399,
+        "actual": 0.01831093617174209
+      },
+      "forward_jog_average_mm_s": 4.9998204848345615,
+      "admittance_tool_z_average_mm_s": -4.997518724628918,
+      "axial_velocity_clipped_percent": 97.6,
+      "axial_offset_start_end_mm": [
+        -10.462255016319043,
+        -25.414972209768724
+      ],
+      "force_tool_z_mean_n": -3.863608943894319,
+      "offset_update_axial_average_mm_s": -5.00038895459676,
+      "rotation_of_existing_offset_axial_average_mm_s": 0.0035858372431596263,
+      "guard_trip_count": 0,
+      "status_counts": {
+        "tracking": 375
+      },
+      "cancellation_percent": 99.93965048365395
+    },
+    "later_insertion": {
+      "window_s": [
+        97.70411783499992,
+        100.39211158799992
+      ],
+      "rows": 337,
+      "insertion_direction_base": [
+        -0.01648797514604689,
+        0.9998318250437034,
+        0.008029215737595963
+      ],
+      "axial_displacement_mm": {
+        "nominal": 13.439486229356659,
+        "compliance": -12.881790528865231,
+        "corrected_reference": 0.5576957004914276,
+        "final_command": 0.5652240408333404,
+        "actual": 0.5388203342402679
+      },
+      "axial_average_speed_mm_s": {
+        "nominal": 4.999820484834533,
+        "compliance": -4.792343923600342,
+        "corrected_reference": 0.207476561234191,
+        "final_command": 0.2102772895965656,
+        "actual": 0.2004544592556826
+      },
+      "forward_jog_average_mm_s": 4.9998204848345615,
+      "admittance_tool_z_average_mm_s": -4.786118280408481,
+      "axial_velocity_clipped_percent": 70.32640949554896,
+      "axial_offset_start_end_mm": [
+        -6.763967917820998,
+        -19.627321676991148
+      ],
+      "force_tool_z_mean_n": -2.45473758476773,
+      "offset_update_axial_average_mm_s": -4.796921049553306,
+      "rotation_of_existing_offset_axial_average_mm_s": 0.004577125952948451,
+      "guard_trip_count": 0,
+      "status_counts": {
+        "tracking": 337
+      },
+      "cancellation_percent": 95.85031978921023
+    }
+  },
+  "twist": {
+    "first_contact": {
+      "window_s": [
+        38.00010491199998,
+        55.392151689
+      ],
+      "rows": 2175,
+      "actual_change_mm": [
+        -0.3283023380828638,
+        17.22261537506131,
+        -0.7882974151885946
+      ],
+      "nominal_change_mm": [
+        0.1730512532895716,
+        86.95687180441155,
+        0.10854932361235115
+      ],
+      "compliance_change_mm": [
+        -0.522858754469226,
+        -70.19224621330966,
+        -1.023715305153587
+      ],
+      "reference_change_mm": [
+        -0.3498075011796544,
+        16.76462559110189,
+        -0.9151659815412359
+      ],
+      "command_change_mm": [
+        -0.34277995680209017,
+        16.772148674811092,
+        -0.9109080234682096
+      ],
+      "vertical_compliance_change_by_tool_xyz_mm": [
+        -0.026944887760895063,
+        -1.2563192774087175,
+        0.2595488600160314
+      ],
+      "filtered_wrench_mean": [
+        0.14987193664122714,
+        -0.18249305151746906,
+        -2.4897240227692548,
+        0.06510254753316447,
+        0.07261191958653879,
+        -0.04944463304146951
+      ],
+      "processed_wrench_mean": [
+        0.1513657755210128,
+        -0.04363859476449516,
+        -2.4846607114596204,
+        0.00842105105624333,
+        0.05067225956201256,
+        -0.03301455560723667
+      ],
+      "filtered_force_peak_abs_n": [
+        4.323473354422484,
+        1.408889414143815,
+        5.1987478568211465
+      ],
+      "force_nonzero_percent": [
+        87.1264367816092,
+        27.908045977011493,
+        98.34482758620689
+      ],
+      "max_offset_translation_mm": [
+        2.5119695844924705,
+        1.9447620105203351,
+        70.22035410734848
+      ],
+      "max_offset_rotation_deg": [
+        0.38734424437234866,
+        1.3597071385279902,
+        0.8405964746670943
+      ],
+      "reference_to_command_rms_mm": 0.008732653494113585,
+      "left_stick_vertical_peak_abs": 0.001983642578125,
+      "angular_jog_peak_rad_s": 0.0,
+      "mean_tool_axes_in_base": [
+        [
+          -0.9999012717838838,
+          -0.007239245298219014,
+          -0.007057552628540114
+        ],
+        [
+          -0.007068410436292429,
+          0.0004623410506824146,
+          0.999936824990334
+        ],
+        [
+          -0.007217008371206979,
+          0.9999580821506893,
+          -0.0005461142193555935
+        ]
+      ],
+      "one_hz_harmonic_peak_to_peak": {
+        "actual_xyz_mm": [
+          0.7127216512588708,
+          0.25247374781738235,
+          0.2675631430532489
+        ],
+        "reference_xyz_mm": [
+          0.8975498648601251,
+          0.31825428899388564,
+          0.3219860210026438
+        ],
+        "command_xyz_mm": [
+          0.8936126856614471,
+          0.3181671600482519,
+          0.320072507825773
+        ],
+        "actual_rotation_deg": [
+          0.02030748643581974,
+          0.032942742013431496,
+          0.07010809087105636
+        ]
+      },
+      "effective_command_to_measured_lag": [
+        {
+          "lag_ms": 135.9637899999484,
+          "correlation": 0.9955202107440265
+        },
+        {
+          "lag_ms": 143.96165999994537,
+          "correlation": 0.9964668815039994
+        },
+        {
+          "lag_ms": 135.9637899999484,
+          "correlation": 0.9981854665204563
+        },
+        {
+          "lag_ms": 127.96591999995144,
+          "correlation": 0.9988309137965224
+        },
+        {
+          "lag_ms": 127.96591999995144,
+          "correlation": 0.9981676199895325
+        },
+        {
+          "lag_ms": 127.96591999995144,
+          "correlation": 0.9988366424066013
+        }
+      ],
+      "rotation_of_existing_offset_detrended_span_mm": [
+        0.4193481512505051,
+        0.010103254639753536,
+        0.2565023904877364
+      ],
+      "offset_update_accumulated_mm": [
+        -1.2651408165011302,
+        -70.22001513162256,
+        -1.23960870210594
+      ],
+      "rotation_of_offset_accumulated_mm": [
+        0.7422820620319251,
+        0.027768918312841947,
+        0.2158933969523567
+      ],
+      "direct_torque_std_nm": [
+        0.05308307629640951,
+        0.2716675011293521,
+        0.13271904645812382
+      ],
+      "lever_torque_std_nm": [
+        0.09212033322646242,
+        0.4322140477587839,
+        0.0
+      ],
+      "dominant_lateral_frequency_hz": 1.0356207261903332,
+      "fft_peak_frequency_hz": 1.0347582630086083,
+      "harmonic_signals": {
+        "measured_tcp_pose": {
+          "harmonic_peak_to_peak_xyz_mm_rotation_deg": [
+            1.327265763011549,
+            0.08114410388217196,
+            0.1503435079980447,
+            0.01918183553857144,
+            0.09539280572492864,
+            0.04431420334377293
+          ]
+        },
+        "corrected_pose": {
+          "harmonic_peak_to_peak_xyz_mm_rotation_deg": [
+            1.7745947020408455,
+            0.0649649208593035,
+            0.2974941327880436,
+            0.011224770642920972,
+            0.09111076933252592,
+            0.05194632178706212
+          ]
+        },
+        "final_command_tcp_pose": {
+          "harmonic_peak_to_peak_xyz_mm_rotation_deg": [
+            1.7637841007287693,
+            0.06773378150844404,
+            0.298301482229891,
+            0.011174779251661502,
+            0.09074612405930844,
+            0.051934756760110605
+          ]
+        }
+      },
+      "actual_rotation_span_initial_tool_deg": [
+        0.40757246191583235,
+        1.3841869648209753,
+        0.841439329673047
+      ],
+      "reference_to_command_rotation_rms_deg": 0.0004400755220789291,
+      "processed_torque_mean_nm": [
+        0.00842105105624333,
+        0.05067225956201256,
+        -0.03301455560723667
+      ],
+      "processed_torque_peak_abs_nm": [
+        0.23187645613408364,
+        0.4635240885562925,
+        0.30593186097775804
+      ],
+      "processed_torque_nonzero_percent": [
+        3.9080459770114944,
+        32.18390804597701,
+        14.25287356321839
+      ]
+    },
+    "steady_contact": {
+      "window_s": [
+        58.00015134299997,
+        64.49612779300003
+      ],
+      "rows": 813,
+      "actual_change_mm": [
+        0.36607309135673916,
+        0.47333593845633004,
+        0.7304637150007238
+      ],
+      "nominal_change_mm": [
+        -0.680050849852492,
+        32.4713729191227,
+        -0.12030225926912408
+      ],
+      "compliance_change_mm": [
+        2.4021624885084805,
+        -32.09858348648038,
+        1.1139682994079294
+      ],
+      "reference_change_mm": [
+        1.7221116386559885,
+        0.3727894326423211,
+        0.9936660401388053
+      ],
+      "command_change_mm": [
+        1.7093293271299217,
+        0.3620586617743129,
+        0.9879715759645933
+      ],
+      "vertical_compliance_change_by_tool_xyz_mm": [
+        0.022950397156361404,
+        0.7663005761486786,
+        0.3247173261028146
+      ],
+      "filtered_wrench_mean": [
+        -0.031960437124364756,
+        -0.0068333337002781085,
+        -4.313585381371792,
+        0.05996881611537772,
+        -0.004805313031666044,
+        -0.0380117688480392
+      ],
+      "processed_wrench_mean": [
+        -0.0313386877554702,
+        -0.008119890032705314,
+        -4.313585381371792,
+        0.017154222057832937,
+        -0.004632387077766147,
+        -0.0195672181315652
+      ],
+      "filtered_force_peak_abs_n": [
+        4.435738756890584,
+        2.041319531476443,
+        7.534076104545112
+      ],
+      "force_nonzero_percent": [
+        90.40590405904058,
+        82.77982779827798,
+        100.0
+      ],
+      "max_offset_translation_mm": [
+        1.0723455390871213,
+        1.5182851153348118,
+        37.61623433530084
+      ],
+      "max_offset_rotation_deg": [
+        0.4325926230216917,
+        0.2915670640194266,
+        0.31701885732773494
+      ],
+      "reference_to_command_rms_mm": 0.009159234237497189,
+      "left_stick_vertical_peak_abs": 0.015655517578125,
+      "angular_jog_peak_rad_s": 0.0,
+      "mean_tool_axes_in_base": [
+        [
+          -0.9996039581993937,
+          -0.015026807361873165,
+          -0.023742362418616703
+        ],
+        [
+          -0.023883509461206497,
+          0.009245901354066537,
+          0.9996707088941482
+        ],
+        [
+          -0.014802120871163622,
+          0.9998432461754206,
+          -0.009601361291309675
+        ]
+      ],
+      "one_hz_harmonic_peak_to_peak": {
+        "actual_xyz_mm": [
+          0.3024581990013653,
+          0.14267383714495868,
+          1.2338739628615523
+        ],
+        "reference_xyz_mm": [
+          0.3295741894634071,
+          0.05370262141724887,
+          1.6165426601528887
+        ],
+        "command_xyz_mm": [
+          0.3274806070249884,
+          0.046306570198421715,
+          1.6023509368145827
+        ],
+        "actual_rotation_deg": [
+          0.043467302164121695,
+          0.016199790647237276,
+          0.03445708937040547
+        ]
+      },
+      "effective_command_to_measured_lag": [
+        {
+          "lag_ms": 143.96175899992159,
+          "correlation": 0.9980592489301302
+        },
+        {
+          "lag_ms": 143.96175899992159,
+          "correlation": 0.9978401019238665
+        },
+        {
+          "lag_ms": 143.96175899992159,
+          "correlation": 0.998857642268889
+        },
+        {
+          "lag_ms": 167.95538549990852,
+          "correlation": 0.9790144368699473
+        },
+        {
+          "lag_ms": 135.96388349992594,
+          "correlation": 0.998256583383717
+        },
+        {
+          "lag_ms": 143.96175899992159,
+          "correlation": 0.9816566584481812
+        }
+      ],
+      "rotation_of_existing_offset_detrended_span_mm": [
+        0.12827800216592355,
+        0.0033010085385083952,
+        0.07291718051349952
+      ],
+      "offset_update_accumulated_mm": [
+        2.333330949497511,
+        -32.12242429193359,
+        1.0935261431045586
+      ],
+      "rotation_of_offset_accumulated_mm": [
+        0.06883153901096771,
+        0.02384080545321583,
+        0.02044215630329654
+      ],
+      "direct_torque_std_nm": [
+        0.17094657247535383,
+        0.23538282606839217,
+        0.11886274428263786
+      ],
+      "lever_torque_std_nm": [
+        0.2518644369451219,
+        0.5199293553141691,
+        0.0
+      ],
+      "dominant_lateral_frequency_hz": 1.1487500662970067,
+      "fft_peak_frequency_hz": 1.2303390320328655,
+      "harmonic_signals": {
+        "measured_tcp_pose": {
+          "harmonic_peak_to_peak_xyz_mm_rotation_deg": [
+            1.2396388867331007,
+            0.07485878721186602,
+            0.16312922857098405,
+            0.0436575140639127,
+            0.18358877201837742,
+            0.03593748442187297
+          ]
+        },
+        "corrected_pose": {
+          "harmonic_peak_to_peak_xyz_mm_rotation_deg": [
+            1.6639171691399794,
+            0.028301458901058542,
+            0.23982788560113927,
+            0.02823677873507222,
+            0.18245332661902933,
+            0.03404381998168131
+          ]
+        },
+        "final_command_tcp_pose": {
+          "harmonic_peak_to_peak_xyz_mm_rotation_deg": [
+            1.6502180243050246,
+            0.022304356448057873,
+            0.23609442752298454,
+            0.028202503212247335,
+            0.18186847444277704,
+            0.034037497355812275
+          ]
+        }
+      },
+      "actual_rotation_span_initial_tool_deg": [
+        0.30083867910877127,
+        0.24815862017193502,
+        0.28692139785754806
+      ],
+      "reference_to_command_rotation_rms_deg": 0.00043069836236090287,
+      "processed_torque_mean_nm": [
+        0.017154222057832937,
+        -0.004632387077766147,
+        -0.0195672181315652
+      ],
+      "processed_torque_peak_abs_nm": [
+        0.225139834257096,
+        0.7237142167852373,
+        0.30001514237547444
+      ],
+      "processed_torque_nonzero_percent": [
+        8.118081180811808,
+        78.47478474784748,
+        8.487084870848708
+      ]
+    }
+  }
+}

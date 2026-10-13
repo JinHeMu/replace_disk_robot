@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Collect static-pose data for six-axis F/T payload gravity identification.
 
-This tool reuses the real JAKA keyboard Cartesian servo.  Move to a distinct,
-collision-free tool orientation with the movement keys, then release them: no
+This tool reuses the real JAKA Joy Cartesian servo. Move to a distinct,
+collision-free tool orientation with LB held, then release LB: no
 capture key is needed any more.  The collector samples the EDG packet
 continuously at ``--capture-rate-hz`` (5 Hz by default), notices that the arm has
 stopped, and saves one static window for that pose by itself.  Move the arm
@@ -15,8 +15,8 @@ The 125 Hz control loop is unchanged; only the CSV recording is decimated to
 rate and ``ServoConfig.max_dt_s`` rejects control ticks slower than 20 Hz.
 Samples that are not part of an accepted static window are still written, with
 ``capture_id=-1``, so the file remains a complete, monotonically timed 5 Hz
-record of the session; ``identify_ft_payload.py`` and ``plot_ft_gravity_data.py``
-already ignore those rows.
+record of the session. Use ``identify_ft_payload.py --static-poses`` to fit only
+accepted static windows.
 
 The script commands real hardware unless --dry-run is supplied.  It does not
 power on or enable the robot; use the repository's jaka_start.py first.
@@ -28,10 +28,11 @@ import argparse
 import csv
 import math
 import sys
+import time
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-import glfw
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -49,11 +50,9 @@ from jaka_common import (  # noqa: E402
     make_client,
     parse_bool,
 )
-from replace_disk_robot.applications.jaka_keyboard.jaka_keyboard_servo import (  # noqa: E402
-    JakaKeyboardServo,
-    _KEY_TO_NAME,
-    _window_title,
-)
+from replace_disk_robot.applications.jaka_joy.joy_node import JakaJoyServo  # noqa: E402
+from replace_disk_robot.adapters.joy import XboxController  # noqa: E402
+from replace_disk_robot.control import JoyControl  # noqa: E402
 from replace_disk_robot.applications.common.wrench import (  # noqa: E402
     default_tool0_ft_transforms,
 )
@@ -79,7 +78,14 @@ CSV_COLUMNS = (
 IDENTIFY_DEFAULT_MIN_SAMPLES = 50
 
 
-def _parse_args() -> argparse.Namespace:
+def _capture_input_ready(app, elapsed_s: float) -> bool:
+    sample = app.joy_sample
+    return bool(app.joy.valid(elapsed_s) and app.joy.neutral()
+                and not {"lb", "b", "back"}.intersection(sample.buttons)
+                and not app.resume_required)
+
+
+def _parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     add_network_args(parser)
     parser.add_argument(
@@ -94,11 +100,15 @@ def _parse_args() -> argparse.Namespace:
                         help="EDG control/Servo loop rate; CSV sampling is decimated separately")
     parser.add_argument("--capture-rate-hz", type=float, default=5.0,
                         help="CSV sampling rate (default: 5 Hz, i.e. one row every 200 ms)")
-    parser.add_argument("--linear-speed", type=float, default=0.01)
-    parser.add_argument("--angular-speed-deg", type=float, default=5.0)
+    parser.add_argument("--linear-speed", type=float, default=0.005)
+    parser.add_argument("--angular-speed-deg", type=float, default=1.0)
     parser.add_argument("--command-frame", choices=("base", "tool"), default="base")
+    parser.add_argument("--controller-index", type=int, default=0)
+    parser.add_argument("--joy-deadzone", type=float, default=0.15)
+    parser.add_argument("--joy-precision-scale", type=float, default=0.25)
+    parser.add_argument("--joy-timeout-s", type=float, default=0.15)
     parser.add_argument("--seconds", type=float, default=0.0,
-                        help="optional total duration; 0 runs until Esc")
+                        help="optional total duration; 0 runs until Back")
     parser.add_argument("--dry-run", action="store_true",
                         help="read and capture only; never enable Servo or send commands")
     parser.add_argument("--settle-seconds", type=float, default=0.75,
@@ -126,10 +136,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--deadband-torque", type=float, default=0.2)
     parser.add_argument("--identity-transform", action="store_true",
                         help="use identity sensor-to-tool rotation (diagnostics only)")
-    # The collector reuses the keyboard-servo controller but deliberately
-    # leaves admittance off while recording raw gravity data.
-    parser.set_defaults(headless=False, plot_wrench_enable=False, admittance=False)
-    return parser.parse_args()
+    # Calibration must not load the old payload fit or run admittance.
+    parser.set_defaults(headless=True, plot_wrench_enable=False, admittance=False,
+                        gravity_json=None, gravity_compensation_enable=False)
+    args = parser.parse_args(argv)
+    JoyControl(args.linear_speed, np.deg2rad(args.angular_speed_deg),
+               deadzone=args.joy_deadzone, precision_scale=args.joy_precision_scale,
+               timeout_s=args.joy_timeout_s)
+    return args
 
 
 class GravityDatasetWriter:
@@ -172,9 +186,11 @@ class GravityDatasetWriter:
         self.completed_captures = 0
         self.rejected_windows = 0
         self.written_rows = 0
-        self.app: JakaKeyboardServo | None = None
+        self.app: JakaJoyServo | None = None
         self._next_capture_s = 0.0
         self._interval_max_speed = 0.0
+        self._interval_input_ready = True
+        self._last_capture_q = None
 
     @property
     def status_text(self) -> str:
@@ -195,7 +211,8 @@ class GravityDatasetWriter:
     # ------------------------------------------------------------------
     # Capture state machine
     # ------------------------------------------------------------------
-    def _update_phase(self, elapsed_s: float, max_joint_speed: float, app) -> None:
+    def _update_phase(self, elapsed_s: float, max_joint_speed: float, app,
+                      input_ready: bool) -> None:
         """Advance the state machine for one decimated capture tick.
 
         ``max_joint_speed`` is the largest absolute joint speed seen since the
@@ -206,7 +223,8 @@ class GravityDatasetWriter:
 
         self.stable_seconds = 0.0
         stationary = (
-            app.servo.fault is None
+            app.servo.fault in (None, "stopped")
+            and input_ready
             and elapsed_s >= self.args.start_delay_seconds
             and max_joint_speed <= self.args.stationary_speed_rad_s
         )
@@ -235,10 +253,9 @@ class GravityDatasetWriter:
         if self.phase == "recording":
             if not stationary:
                 fault = app.servo.fault
-                reason = (
-                    f"Servo fault: {fault}" if fault is not None
-                    else f"arm moved ({max_joint_speed:.4f} rad/s)"
-                )
+                reason = (f"Servo fault: {fault}" if fault not in (None, "stopped")
+                          else "controller not neutral/ready" if not input_ready
+                          else f"arm moved ({max_joint_speed:.4f} rad/s)")
                 self._flush_rejected_window(reason)
                 self.phase = "idle"
                 self.armed = True
@@ -246,9 +263,9 @@ class GravityDatasetWriter:
 
         # idle
         if not stationary:
-            # Real motion: the operator is heading for a new pose, so the next
-            # still pose becomes eligible again.
-            self.armed = True
+            # Input changes alone must not produce duplicate static poses.
+            if max_joint_speed > self.args.stationary_speed_rad_s:
+                self.armed = True
             return
         if not self.armed:
             return
@@ -279,6 +296,7 @@ class GravityDatasetWriter:
     def _commit_window(self) -> None:
         completed_id = self.capture_id
         rows = self.capture_rows
+        self._last_capture_q = np.array([float(rows[-1][f"q{i}_rad"]) for i in range(1, 7)])
         self.writer.writerows(rows)
         self.written_rows += len(rows)
         self.capture_rows = []
@@ -319,7 +337,7 @@ class GravityDatasetWriter:
             "utc_iso": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
             "capture_id": self.capture_id if self.phase == "recording" else -1,
             "capture_phase": self.phase,
-            "command_active": int(bool(app.keys.pressed)),
+            "command_active": int(bool(app._active and not app.joy.neutral())),
         }
         row.update({f"q{i}_rad": f"{value:.12g}" for i, value in enumerate(state.joint_position_rad, 1)})
         row.update({f"qd{i}_rad_s": f"{value:.12g}" for i, value in enumerate(state.joint_velocity_rad_s, 1)})
@@ -357,9 +375,15 @@ class GravityDatasetWriter:
         return row
 
     def __call__(self, elapsed_s, state, measured, wrench, app) -> None:
-        """``JakaKeyboardServo`` sample hook, called once per control tick."""
+        """``JakaJoyServo`` sample hook, called once per control tick."""
 
         self.app = app
+        self._interval_input_ready &= _capture_input_ready(app, elapsed_s)
+        # Precision-mode motion can remain below the still-speed threshold.
+        # Re-arm from actual displacement too, without counting reconnects as poses.
+        if (self._last_capture_q is not None
+                and np.max(np.abs(state.joint_position_rad - self._last_capture_q)) > 0.002):
+            self.armed = True
         joint_speed = float(np.max(np.abs(state.joint_velocity_rad_s)))
         self._interval_max_speed = (
             max(self._interval_max_speed, joint_speed)
@@ -375,8 +399,10 @@ class GravityDatasetWriter:
             self._next_capture_s = elapsed_s + self.capture_period_s
         interval_max_speed = self._interval_max_speed
         self._interval_max_speed = 0.0
+        interval_input_ready = self._interval_input_ready
+        self._interval_input_ready = True
 
-        self._update_phase(elapsed_s, interval_max_speed, app)
+        self._update_phase(elapsed_s, interval_max_speed, app, interval_input_ready)
         row = self._build_row(elapsed_s, state, measured, wrench, app)
         if self.phase == "recording":
             self.capture_rows.append(row)
@@ -389,80 +415,39 @@ class GravityDatasetWriter:
         self.file.flush()
 
 
-def _on_key(window, key, scancode, action, mods) -> None:  # noqa: ARG001
-    app, _dataset = glfw.get_window_user_pointer(window)
-    if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
-        glfw.set_window_should_close(window, True)
-        return
-    if key == glfw.KEY_SPACE and action == glfw.PRESS:
-        app.stop("stopped")
-        return
-    if key == glfw.KEY_ENTER and action == glfw.PRESS:
-        app.resume()
-        return
-    name = _KEY_TO_NAME.get(key)
-    if name is None:
-        return
-    if action in (glfw.PRESS, glfw.REPEAT):
-        app.keys.press(name)
-    elif action == glfw.RELEASE:
-        app.keys.release(name)
-
-
-def _on_focus(window, focused: bool) -> None:
-    app, _dataset = glfw.get_window_user_pointer(window)
-    app.handle_focus(bool(focused))
-
-
-def _run_window(app: JakaKeyboardServo, dataset: GravityDatasetWriter) -> None:
-    if not glfw.init():
-        raise RuntimeError("cannot initialize GLFW display")
-    window = None
-    try:
-        window = glfw.create_window(720, 240, "JAKA F/T gravity data", None, None)
-        if window is None:
-            raise RuntimeError("cannot create GLFW window")
-        glfw.make_context_current(window)
-        glfw.swap_interval(0)
-        glfw.set_window_user_pointer(window, (app, dataset))
-        glfw.set_key_callback(window, _on_key)
-        glfw.set_window_focus_callback(window, _on_focus)
-        glfw.show_window(window)
-        glfw.focus_window(window)
-        print(
-            "[collector] Move with W/S, A/D, R/F, Q/E and arrow keys.\n"
-            f"[collector] Recording runs on its own at {app.args.capture_rate_hz:g} Hz. "
-            "Release the movement keys at a static orientation and one "
-            f"{app.args.capture_seconds:g}s window ({dataset.capture_rows_target} rows) is "
-            "saved after the arm has been still; move again for the next pose. "
-            "Space stops, Enter resumes, Esc exits. Aim for >=12 diverse orientations."
-        )
-        loop = RateLoop(app.args.rate_hz)
-        last_now = None
-        for elapsed_s, now in loop:
-            glfw.poll_events()
-            if glfw.window_should_close(window):
-                break
-            dt_s = 1.0 / app.args.rate_hz if last_now is None else now - last_now
-            last_now = now
-            app.tick(elapsed_s, dt_s)
-            glfw.set_window_title(
-                window,
-                f"{_window_title(app)} | csv={app.args.capture_rate_hz:g}Hz "
-                f"{dataset.status_text} saved={dataset.completed_captures}",
-            )
-            glfw.swap_buffers(window)
-            if app.args.seconds > 0 and elapsed_s >= app.args.seconds:
-                break
-        print(
-            f"[collector] finished: {dataset.completed_captures} captures "
-            f"({dataset.rejected_windows} interrupted), {dataset.written_rows} rows, "
-            f"CSV={dataset.path}"
-        )
-    finally:
-        if window is not None:
-            glfw.destroy_window(window)
-        glfw.terminate()
+def _run_joy(app: JakaJoyServo, source: XboxController, dataset: GravityDatasetWriter) -> None:
+    """Poll the controller and run Servo in the same elapsed-time domain."""
+    print(
+        "[collector] Center inputs, release LB, then hold LB to move. "
+        "Release LB and keep inputs neutral to record; move again for the next pose. "
+        "RB precision; B stop; A resume; Back exit. "
+        f"Each window has {dataset.capture_rows_target} rows at "
+        f"{app.args.capture_rate_hz:g} Hz. Aim for >=12 diverse orientations."
+    )
+    start = time.monotonic()
+    previous = None
+    next_status = 0.0
+    for _elapsed, _now in RateLoop(app.args.rate_hz):
+        sample = source.poll()
+        elapsed = time.monotonic() - start
+        sample = replace(sample, timestamp_s=sample.timestamp_s - start)
+        dt = 1.0 / app.args.rate_hz if previous is None else elapsed - previous
+        previous = elapsed
+        app.apply_sample(sample, elapsed)
+        if app.exit_requested:
+            break
+        app.tick(elapsed, dt)
+        if elapsed >= next_status:
+            print(f"[collector] {app._status_text()} | {dataset.status_text} "
+                  f"saved={dataset.completed_captures}")
+            next_status = elapsed + 1.0
+        if app.args.seconds > 0 and elapsed >= app.args.seconds:
+            break
+    print(
+        f"[collector] finished: {dataset.completed_captures} captures "
+        f"({dataset.rejected_windows} interrupted), {dataset.written_rows} rows, "
+        f"CSV={dataset.path}"
+    )
 
 
 def main() -> None:
@@ -480,16 +465,16 @@ def main() -> None:
     if args.stationary_speed_rad_s <= 0:
         raise SystemExit("--stationary-speed-rad-s must be positive")
 
-    client = make_client(args)
-    try:
-        dataset = GravityDatasetWriter(args.output.resolve(), args)
-    except FileExistsError as exc:
+    if args.output.exists() and not args.overwrite:
         raise SystemExit(
             f"output CSV already exists: {args.output.resolve()} "
             "(choose another --output or pass --overwrite)"
-        ) from exc
-    app = None
+        )
+    app = source = dataset = None
     try:
+        source = XboxController(args.controller_index)
+        print(f"[collector] {source.name}: {source.mapping}")
+        dataset = GravityDatasetWriter(args.output.resolve(), args)
         print(
             f"[collector] control loop {args.rate_hz:g} Hz, CSV {args.capture_rate_hz:g} Hz, "
             f"{dataset.capture_rows_target} rows per accepted window"
@@ -500,23 +485,27 @@ def main() -> None:
                 f"default --min-samples {IDENTIFY_DEFAULT_MIN_SAMPLES} of "
                 "identify_ft_payload.py; pass a smaller --min-samples there"
             )
+        client = make_client(args)
         with edg_session(client, torque_sensor_mode=args.torque_sensor_mode) as client:
-            app = JakaKeyboardServo(client, args, sample_callback=dataset)
+            app = JakaJoyServo(client, args, sample_callback=dataset)
             dataset.app = app
             try:
                 app.initialize()
-                _run_window(app, dataset)
+                _run_joy(app, source, dataset)
             finally:
                 app.shutdown()
     except KeyboardInterrupt:
         print("\n[collector] interrupted by user")
-    except (JakaError, RuntimeError, ValueError) as exc:
+    except (JakaError, RuntimeError, ValueError, OSError) as exc:
         print(f"[collector] FAILED: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     finally:
-        dataset.close()
+        if dataset is not None:
+            dataset.close()
         if app is not None:
             app.shutdown()
+        if source is not None:
+            source.close()
 
 
 if __name__ == "__main__":

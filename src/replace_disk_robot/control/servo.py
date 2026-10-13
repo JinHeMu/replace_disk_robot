@@ -5,8 +5,8 @@ optional collision checks:
 
 * :meth:`CartesianServo.submit` accepts a Cartesian velocity (the original
   keyboard interface);
-* :meth:`CartesianServo.submit_pose` accepts a Cartesian pose and converts the
-  pose error to a bounded tracking twist before solving IK.
+* :meth:`CartesianServo.submit_pose` follows a Cartesian reference trajectory
+  with bounded feedforward and correction of the commanded pose before IK.
 
 Both APIs must be refreshed within ``command_timeout_s``; otherwise the servo
 holds its last joint target.
@@ -53,6 +53,7 @@ class CartesianServo:
     explicitly refreshed commands. update returns a JointState for ArmPort.
     A keyboard, joystick or autonomous client can all use the same submit API.
     """
+    pose_tracking_mode = 'command_trajectory_feedforward'
     def __init__(self, kinematics: KinematicsPort, joint_limits_rad,
                  config: ServoConfig | None = None,
                  collision_checker: CollisionCheckerPort | None = None):
@@ -71,6 +72,8 @@ class CartesianServo:
         self.command_time = None
         self.pose_command = None
         self.pose_command_time = None
+        self._previous_pose_reference = None
+        self.pose_tracking = None
         self.last_time = None
         self.status = 'not_initialized'
         self.fault = None
@@ -102,6 +105,8 @@ class CartesianServo:
         self.command_time = None
         self.pose_command = None
         self.pose_command_time = None
+        self._previous_pose_reference = None
+        self.pose_tracking = None
         self.last_time = None
         self.fault = None
         self.status = 'holding'
@@ -113,17 +118,22 @@ class CartesianServo:
         self._check_command_time(now_s)
         self.command, self.command_time = command, now_s
         self.pose_command, self.pose_command_time = None, None
+        self._previous_pose_reference = None
 
     def submit_pose(self, target: Pose, now_s: float):
         """Submit (or refresh) a Cartesian pose to track.
 
-        The pose is integrated by the servo at the configured
-        ``pose_*_speed`` limits.  A typical admittance loop refreshes it every
-        control tick so that the reference follows the filtered force offset.
+        Consecutive references provide motion feedforward. Correction uses
+        FK of the last commanded joints, the state being integrated by IK.
+        Measured joints remain the independent tracking/fault feedback. This
+        avoids integrating delayed actuator error into the command repeatedly.
         """
         if not isinstance(target, Pose):
             raise TypeError('target must be a Pose')
         self._check_command_time(now_s)
+        if (self.pose_command_time is not None
+                and now_s - self.pose_command_time > self.config.command_timeout_s):
+            self._previous_pose_reference = None
         self.pose_command, self.pose_command_time = target, now_s
         self.command, self.command_time = None, None
 
@@ -133,6 +143,8 @@ class CartesianServo:
         self.command_time = None
         self.pose_command = None
         self.pose_command_time = None
+        self._previous_pose_reference = None
+        self.pose_tracking = None
         self.fault = reason
         self.status = reason
         return self.target
@@ -146,6 +158,7 @@ class CartesianServo:
                 (self.last_time is not None and now_s < self.last_time)):
             raise ValueError('Invalid servo time or dt')
         self.last_time = now_s
+        self.pose_tracking = None
         if self.fault:
             return self.target
         if np.max(np.abs(actual.position_rad-self.target.position_rad)) > self.config.max_tracking_error_rad:
@@ -155,13 +168,15 @@ class CartesianServo:
             if (self.pose_command_time is None or
                     now_s-self.pose_command_time > self.config.command_timeout_s):
                 self.status = 'command_timeout'
+                self._previous_pose_reference = None
                 return self.target
             if self.pose_command_time > now_s:
                 raise ValueError('Command is timestamped in the future')
-            actual_pose = self.kinematics.forward(actual)
-            if self.pose_command.frame_id != actual_pose.frame_id:
+            commanded_pose = self.kinematics.forward(self.target)
+            if self.pose_command.frame_id != commanded_pose.frame_id:
                 raise ValueError('Pose command and kinematics base frames differ')
-            linear, angular = self._pose_tracking_twist(self.pose_command, actual_pose)
+            linear, angular = self._pose_tracking_twist(self.pose_command, commanded_pose, dt_s)
+            self._previous_pose_reference = self.pose_command
             if not np.any(linear) and not np.any(angular):
                 self.status = 'holding'
                 return self.target
@@ -183,26 +198,58 @@ class CartesianServo:
         angular_world = rotation_matrix(pose.quaternion_wxyz) @ angular
         return self._step(linear, angular_world, actual, dt_s, 'moving')
 
-    def _pose_tracking_twist(self, reference: Pose, actual: Pose):
-        """Return a bounded world-frame tracking twist [v; omega]."""
-        position_error = reference.position_m - actual.position_m
+    def _pose_tracking_twist(self, reference: Pose, commanded: Pose, dt_s: float):
+        """Follow reference increments, correcting command-space backlog.
+
+        The correction is evaluated against the *previous* reference: adding
+        the new increment plus error to the new reference would count that
+        increment twice. The first reference has no feedforward. Exact scalar
+        decay keeps correction non-overshooting for every valid control dt.
+        Feedforward and correction share the existing Cartesian/joint limits.
+        """
+        previous = self._previous_pose_reference
+        anchor = previous if previous is not None else reference
+        if anchor.frame_id != reference.frame_id:
+            raise ValueError('Pose trajectory frame changed; reset the servo')
+        feedforward = np.zeros(6)
+        if previous is not None:
+            feedforward[:3] = (reference.position_m - previous.position_m) / dt_s
+            feedforward[3:] = rotation_vector_from_matrix(
+                rotation_matrix(reference.quaternion_wxyz)
+                @ rotation_matrix(previous.quaternion_wxyz).T
+            ) / dt_s
+        position_error = anchor.position_m - commanded.position_m
         rotation_error = (
-            rotation_matrix(reference.quaternion_wxyz)
-            @ rotation_matrix(actual.quaternion_wxyz).T
+            rotation_matrix(anchor.quaternion_wxyz)
+            @ rotation_matrix(commanded.quaternion_wxyz).T
         )
         rotation_error_vector = rotation_vector_from_matrix(rotation_error)
         if np.linalg.norm(position_error) < self.config.pose_deadband_m:
             position_error = np.zeros(3)
         if np.linalg.norm(rotation_error_vector) < self.config.pose_deadband_rad:
             rotation_error_vector = np.zeros(3)
+        correction = np.r_[
+            -np.expm1(-self.config.pose_linear_gain_s_inv * dt_s) / dt_s * position_error,
+            -np.expm1(-self.config.pose_angular_gain_s_inv * dt_s) / dt_s * rotation_error_vector,
+        ]
+        requested = feedforward + correction
         linear = self._limit(
-            self.config.pose_linear_gain_s_inv * position_error,
+            requested[:3],
             self.config.pose_linear_speed_m_s,
         )
         angular = self._limit(
-            self.config.pose_angular_gain_s_inv * rotation_error_vector,
+            requested[3:],
             self.config.pose_angular_speed_rad_s,
         )
+        self.pose_tracking = {
+            'mode': self.pose_tracking_mode,
+            'commanded_pose_before': commanded,
+            'previous_reference': previous,
+            'feedforward_twist_base': feedforward.copy(),
+            'correction_twist_base': correction.copy(),
+            'requested_twist_base': requested.copy(),
+            'limited_twist_base': np.r_[linear, angular],
+        }
         return linear, angular
 
     def _step(self, linear_world, angular_world, actual: JointState, dt_s: float,

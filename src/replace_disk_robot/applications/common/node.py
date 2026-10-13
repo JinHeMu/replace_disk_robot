@@ -440,6 +440,8 @@ class JakaServo:
         state = self.client.read_edg_state()
         measured = JointState(self.arm.joint_names, state.joint_position_rad)
         capture_stage(capture, "feedback", self, self, state, measured)
+        if capture is not None:
+            capture.data["wrench_start_monotonic_ns"] = time.perf_counter_ns()
         try:
             wrench = self._read_wrench(state, measured)
         except (ValueError, RuntimeError) as exc:
@@ -448,6 +450,7 @@ class JakaServo:
             return
         self.last_wrench = wrench
         if capture is not None:
+            capture.data["wrench_ready_monotonic_ns"] = time.perf_counter_ns()
             capture.data["wrench_stages"] = deepcopy(self.wrench.stages)
 
         # Optional instrumentation hook used by data-collection tools.  The
@@ -500,6 +503,8 @@ class JakaServo:
             print(f"[{self.input_label}] servo error: {exc}", file=sys.stderr)
             return
 
+        capture_stage(capture, "servo", self, self, target)
+
         safe_q, tripped = self.guard.filter_arm_target(
             wrench.as_vector(),
             measured.position_rad,
@@ -507,6 +512,7 @@ class JakaServo:
         )
         if capture is not None:
             capture.data["servo_target_q_rad"] = target.position_rad.copy()
+            capture.data["force_gate_input_wrench"] = wrench.as_vector().copy()
             capture.data["force_gate_tripped"] = bool(tripped)
         if tripped:
             self.stop("force_limit", measured)
@@ -516,9 +522,9 @@ class JakaServo:
 
         if capture is not None:
             capture.data["final_command_q_rad"] = np.asarray(safe_q).copy()
-        self._send_joint_positions(
-            JointState(self.arm.joint_names, safe_q)
-        )
+        final_target = JointState(self.arm.joint_names, safe_q)
+        capture_stage(capture, "final_command", self, self, final_target)
+        self._send_joint_positions(final_target)
         self._print_line(elapsed_s, measured, safe_q, wrench)
 
     def _print_line(self, elapsed_s, measured, command_q, wrench) -> None:

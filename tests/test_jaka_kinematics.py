@@ -1,7 +1,10 @@
 import importlib.util
+import json
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from tempfile import TemporaryDirectory
 
 import mujoco
 import numpy as np
@@ -58,10 +61,67 @@ class JakaKinematicsTest(unittest.TestCase):
         self.assertEqual(pose.frame_id, "jaka_base_link")
         np.testing.assert_allclose(
             pose.position_m,
-            [0.7985, -0.29449958, 0.0066361],
+            [0.7985, -0.21949958304289774, 0.00663637487998886],
             atol=1e-8,
         )
         self.assertAlmostEqual(float(np.linalg.norm(pose.quaternion_wxyz)), 1.0)
+
+    def test_disk_tcp_and_online_lever_share_the_195mm_sensor_origin(self) -> None:
+        from replace_disk_robot.applications.common.wrench import (
+            default_tool0_ft_transforms, validate_tool0_ft_extrinsics,
+        )
+        expected_lever = np.array([0., 0., -.195])
+        np.testing.assert_allclose(default_tool0_ft_transforms()[1], expected_lever, atol=1e-12)
+        sensor_kin = JakaKinematics(end_effector_frame="jk_se_vi_200_link")
+        for q in (np.zeros(6), [-.4, 1.4, -1.2, 1.2, 1., .3], [.5, 2., -.5, .3, 2., -.7]):
+            state = self.joints(q)
+            tcp, sensor = self.kinematics.forward(state), sensor_kin.forward(state)
+            expected_rotation = rotation_matrix(tcp.quaternion_wxyz).T @ rotation_matrix(sensor.quaternion_wxyz)
+            np.testing.assert_allclose(default_tool0_ft_transforms()[0], expected_rotation, atol=1e-12)
+            inferred_sensor_origin = tcp.position_m + rotation_matrix(tcp.quaternion_wxyz) @ expected_lever
+            np.testing.assert_allclose(inferred_sensor_origin, sensor.position_m, atol=1e-12)
+        validate_tool0_ft_extrinsics(expected_rotation, expected_lever)
+        tilt = np.deg2rad(20)
+        legacy_tilt = np.array([[1., 0., 0.], [0., np.cos(tilt), -np.sin(tilt)],
+                                [0., np.sin(tilt), np.cos(tilt)]])
+        with self.assertRaisesRegex(ValueError, "differs from the URDF"):
+            validate_tool0_ft_extrinsics(legacy_tilt @ expected_rotation, expected_lever)
+
+    def test_real_wrench_pipeline_reports_zero_moment_for_load_at_disk_tcp(self) -> None:
+        from replace_disk_robot.applications.common.wrench import WrenchPipeline, default_tool0_ft_transforms
+        from replace_disk_robot.applications.jaka_joy.config import parse_args
+        args = parse_args(["--alpha", "1", "--deadband-force", "0", "--deadband-torque", "0"])
+        pipeline = WrenchPipeline(None, args, self.kinematics)
+        # Use a synthetic fit so collecting/replacing real calibration data
+        # cannot change this geometry regression test.
+        with TemporaryDirectory() as directory:
+            fit = dict(mass_kg=.7, signed_gravity_force_base_n=[0., 0., -.7*9.80665],
+                       center_of_mass_sensor_m=[0., 0., .07], force_bias_sensor_n=[0., 0., 0.],
+                       torque_bias_sensor_nm=[0., 0., 0.],
+                       sensor_to_tool_rotation=default_tool0_ft_transforms()[0].tolist(),
+                       tool_to_sensor_m=[0., 0., -.195])
+            candidate = Path(directory) / "synthetic_fit.json"
+            candidate.write_text(json.dumps(fit))
+            args.gravity_json = candidate
+            pipeline._configure_gravity_compensation()
+        sensor_kin = JakaKinematics(end_effector_frame="jk_se_vi_200_link")
+        cfg = pipeline.gravity_compensator.config
+        for q in (np.zeros(6), [-.4, 1.4, -1.2, 1.2, 1., .3]):
+            state = self.joints(q)
+            tcp, physical_sensor = self.kinematics.forward(state), sensor_kin.forward(state)
+            rb_tool = rotation_matrix(tcp.quaternion_wxyz)
+            rb_sensor = rb_tool @ pipeline.sensor_to_tool_rotation
+            gravity_sensor = rb_sensor.T @ (cfg.payload_mass_kg*np.array(cfg.gravity_m_s2))
+            gravity_wrench = np.r_[gravity_sensor, np.cross(cfg.payload_com_sensor_m, gravity_sensor)]
+            for force_tool in np.eye(3)*5.:
+                force_base = rb_tool @ force_tool
+                # Physical moment about the independently computed sensor origin.
+                moment_base = np.cross(tcp.position_m-physical_sensor.position_m, force_base)
+                raw = (gravity_wrench + pipeline.gravity_compensator.bias_sensor
+                       + np.r_[rb_sensor.T @ force_base, rb_sensor.T @ moment_base])
+                external = pipeline._read_wrench(SimpleNamespace(torque_sensor=raw), state)
+                np.testing.assert_allclose(external.force_n, force_tool, atol=1e-12)
+                np.testing.assert_allclose(external.torque_nm, np.zeros(3), atol=1e-12)
 
     def test_jacobian_matches_central_difference(self) -> None:
         q = np.array([-0.4, 1.4, -1.2, 1.2, 1.0, 0.3])

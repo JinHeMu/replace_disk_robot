@@ -55,16 +55,17 @@ JAKA_JOINT_NAMES = (
     "joint6",
 )
 
-# Default transform from WBMM jaka_hardware_interface.cpp.
-DEFAULT_SENSOR_TO_TOOL_ROTATION = np.array(
-    [
-        [0.707, -0.707, 0.000],
-        [0.664, 0.664, 0.342],
-        [-0.242, -0.242, 0.940],
-    ],
-    dtype=float,
-)
-DEFAULT_TOOL_ARM_M = np.array([0.000, -0.05, -0.4], dtype=float)
+# URDF: jk_se_vi_200_link -> tool0_and_camera_link has yaw -0.7853;
+# tool0_and_camera_link -> tool0 has yaw pi. The inverse gives tool0 <- sensor.
+_SENSOR_TO_TOOL_YAW_RAD = 0.7853 - np.pi
+DEFAULT_SENSOR_TO_TOOL_ROTATION = np.array([
+    [np.cos(_SENSOR_TO_TOOL_YAW_RAD), -np.sin(_SENSOR_TO_TOOL_YAW_RAD), 0.0],
+    [np.sin(_SENSOR_TO_TOOL_YAW_RAD), np.cos(_SENSOR_TO_TOOL_YAW_RAD), 0.0],
+    [0.0, 0.0, 1.0],
+], dtype=float)
+# Current coaxial disk TCP: sensor origin is 195 mm behind the insertion edge.
+# Kept consistent with URDF/MJCF tool0; legacy gravity JSON is rejected separately.
+DEFAULT_TOOL_ARM_M = np.array([0.0, 0.0, -0.195], dtype=float)
 
 
 class JakaError(RuntimeError):

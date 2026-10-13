@@ -130,6 +130,7 @@ class MujocoWrenchPipeline(WrenchPipeline):
         self.stages = {"compensated_sensor": compensated.as_vector(),
                        "compensated_sensor_frame": self.sensor_frame_id,
                        "external_tcp_unfiltered": external.as_vector(),
+                       "filtered_before_deadband": self.wrench_processor.state().as_vector(),
                        "processed": result.as_vector(), "frame_id": result.frame_id,
                        "gravity_compensation": True, "backend": "mujoco"}
         return result

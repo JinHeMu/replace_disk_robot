@@ -173,7 +173,8 @@ def test_left_stick_center_cancels_pending_motion_while_lb_stays_held(frame, axi
 
 def test_left_center_keeps_right_stick_control_and_force_response():
     from replace_disk_robot.applications.jaka_joy.joy_simulation import make_sim_app
-    app = make_sim_app(parse_args(["--linear-speed", ".2"]))
+    # This motion assertion needs a known speed, independent of the user's YAML.
+    app = make_sim_app(parse_args(["--linear-speed", ".2", "--angular-speed-deg", "4"]))
     app._next_print = float("inf")
     t = 0.
     def step(axes):

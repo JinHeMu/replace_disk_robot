@@ -55,6 +55,16 @@ def test_log_roundtrip_and_independent_theory(monkeypatch, tmp_path, dry_run):
     assert all(r["command_sent"] is not dry_run for r in rows)
     assert all(r["admittance_updated"] for r in rows)
     assert all(r["wrench_stages"]["gravity_compensation"] for r in rows)
+    for row in rows:
+        assert (row["feedback_received_monotonic_ns"] <= row["wrench_start_monotonic_ns"]
+                <= row["wrench_ready_monotonic_ns"] <= row["reference_ready_monotonic_ns"])
+        if not dry_run:
+            assert row["reference_ready_monotonic_ns"] <= row["servo_ready_monotonic_ns"]
+            assert row["servo_ready_monotonic_ns"] <= row["tick_end_monotonic_ns"]
+            assert row["servo_tracking"]["mode"] == app.servo.pose_tracking_mode
+            assert row["servo_target_tcp_pose"]["frame_id"] == row["measured_tcp_pose"]["frame_id"]
+            assert row["final_command_tcp_pose"] == row["servo_target_tcp_pose"]
+            np.testing.assert_array_equal(row["force_gate_input_wrench"], row["wrench_stages"]["processed"])
     metadata = json.loads((directory/"metadata.json").read_text())
     assert metadata["effective_args"]["gravity_compensation_enable"] is True
     assert metadata["effective_args"]["tare_enable"] is True
@@ -62,6 +72,7 @@ def test_log_roundtrip_and_independent_theory(monkeypatch, tmp_path, dry_run):
     assert metadata["sensor_to_tool_rotation"] == app.sensor_to_tool_rotation.tolist()
     assert metadata["runtime_calibration"]["gravity_bias_sensor"] == app.gravity_compensator.bias_sensor.tolist()
     assert metadata["sources"]
+    assert metadata["servo_pose_tracking_mode"] == app.servo.pose_tracking_mode
     events = [json.loads(line)["event"] for line in (directory/"events.jsonl").read_text().splitlines()]
     assert "initialized" in events and "stop" in events and "shutdown" in events
     if not dry_run:
@@ -160,6 +171,8 @@ def test_invalid_dt_and_force_stop_are_logged(monkeypatch, tmp_path):
     assert rows[0]["admittance_updated"] is False
     assert rows[1]["fault"] == "force_limit"
     assert rows[1]["force_gate_tripped"] is True
+    # A computed Servo candidate must not be mistaken for the guarded command.
+    assert rows[1]["final_command_tcp_pose"] == rows[1]["measured_tcp_pose"]
     assert len(rows[1]["send_attempts"]) == 2, "preserve both original hold sends"
     assert np.linalg.norm(rows[1]["admittance_integrated"]["offset"]) > 0
     assert np.linalg.norm(rows[1]["admittance_after"]["offset"]) == 0

@@ -1,0 +1,11 @@
+{
+  "accepted": 26320,
+  "written": 26320,
+  "dropped": 0,
+  "pending": 0,
+  "written_samples": 8724,
+  "observer_errors": 0,
+  "writer_error": null,
+  "writer_stopped": true,
+  "complete": true
+}

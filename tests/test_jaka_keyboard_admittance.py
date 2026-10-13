@@ -145,9 +145,8 @@ def _push_args(fit_path: Path) -> tuple[str, ...]:
     """Admittance args for a contact test.
 
     A hand push on the tool tip arrives at the sensor origin and is shifted to
-    tool0 over the 0.4 m arm constant, so a few newtons already exceed the
-    default 2 N*m guard limit.  These tests exercise the compliance chain, not
-    the guard, so they raise both limits.
+    tool0 over the configured arm. These tests exercise the compliance chain,
+    not the guard, so they raise both limits.
     """
 
     return (

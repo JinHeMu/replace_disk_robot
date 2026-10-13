@@ -78,10 +78,14 @@ def validate(args):
         limits = app.kinematics.joint_limits_rad
         q = app.client.robot.arm_position()
         in_limits = bool(np.all(q >= limits[0]) and np.all(q <= limits[1]))
+        # Precision deliberately reduces travel; assess its speed ratio below.
+        minimum_projection = .0004 if translation else .003
+        if "rb" in buttons:
+            minimum_projection *= app.args.joy_precision_scale
         check(f"{frame}_{axis}_{'positive' if sign > 0 else 'negative'}_"
               f"{'admittance' if admittance else 'servo'}_{abs(sign):g}_"
               f"{'precision' if 'rb' in buttons else 'normal'}_{app.args.linear_speed:g}m_s",
-              projection > (.0004 if translation else .003) and app.servo.fault is None
+              projection > minimum_projection and app.servo.fault is None
               and app.max_contacts == 0 and in_limits,
               displacement_m=delta.tolist(), rotation_tcp_rad=angle.tolist(),
               projection=projection, fault=app.servo.fault, max_contacts=app.max_contacts)

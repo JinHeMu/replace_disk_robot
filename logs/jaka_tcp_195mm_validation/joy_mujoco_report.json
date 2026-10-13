@@ -1,0 +1,653 @@
+{
+  "passed": true,
+  "tests": [
+    {
+      "name": "base_horizontal_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        0.004222754504198567,
+        -0.00037523298956398943,
+        -0.00018191989153645838
+      ],
+      "rotation_tcp_rad": [
+        1.3920960991491752e-05,
+        0.00012123782147110299,
+        0.0005900117788639275
+      ],
+      "projection": 0.004222754504198567,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_horizontal_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -0.004222044863575525,
+        0.0003743319882069662,
+        0.0001787318531000226
+      ],
+      "rotation_tcp_rad": [
+        2.1409344157729626e-05,
+        -0.00017177191530315294,
+        -0.0008109335300290437
+      ],
+      "projection": 0.004222044863575525,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_vertical_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -6.610520875094394e-05,
+        4.32464806536248e-05,
+        0.004247595863208109
+      ],
+      "rotation_tcp_rad": [
+        0.00010273808922201204,
+        -1.8693144762512357e-05,
+        -0.00020003148259655732
+      ],
+      "projection": 0.004247595863208109,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_vertical_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        7.255210868889472e-05,
+        5.5614137904530514e-05,
+        -0.004239979234050256
+      ],
+      "rotation_tcp_rad": [
+        -5.661780207485516e-05,
+        0.00023240739955096825,
+        0.0007425402991708852
+      ],
+      "projection": 0.004239979234050256,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_insert_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        8.414611624879553e-05,
+        2.4242258411605322e-05,
+        -0.004242700592904186
+      ],
+      "rotation_tcp_rad": [
+        -7.549628117561405e-05,
+        5.000435788956158e-05,
+        0.00044021997399095115
+      ],
+      "projection": 0.0042426886295348,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_insert_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -3.6419056213876644e-05,
+        1.8544081084703734e-05,
+        0.004267319917188872
+      ],
+      "rotation_tcp_rad": [
+        -6.0938267697676104e-05,
+        -9.102456785121904e-05,
+        -0.0007399758633927066
+      ],
+      "projection": 0.004267315627846744,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_roll_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        3.771310469025124e-05,
+        0.00024106728463949012,
+        8.737615725784575e-06
+      ],
+      "rotation_tcp_rad": [
+        -0.000186758893626965,
+        0.0077568361210303225,
+        -0.0006909250439075935
+      ],
+      "projection": 0.00775894165965064,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_roll_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -3.883860718273402e-05,
+        -0.00024170147194974012,
+        -8.137540970343249e-06
+      ],
+      "rotation_tcp_rad": [
+        0.0002003031148943923,
+        -0.0077496458875259055,
+        0.0006492600932418191
+      ],
+      "projection": 0.007751967692826654,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_pitch_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -7.860868519654618e-05,
+        -0.00021273149878708875,
+        -3.0382140104201483e-05
+      ],
+      "rotation_tcp_rad": [
+        0.008012434563703992,
+        -0.0001071446566085559,
+        0.00010722802364257746
+      ],
+      "projection": 0.00800961907104453,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_pitch_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        0.00011898988079189765,
+        0.00028451110858956907,
+        1.5591697435285434e-05
+      ],
+      "rotation_tcp_rad": [
+        -0.007973109363863378,
+        5.571849572227541e-06,
+        -0.00043280907252168097
+      ],
+      "projection": 0.007971945025441027,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_yaw_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        3.879801099115898e-06,
+        1.3683622978821752e-05,
+        9.377177286329363e-07
+      ],
+      "rotation_tcp_rad": [
+        -2.0594044862564e-07,
+        2.999850425070392e-05,
+        -0.007785435197149122
+      ],
+      "projection": 0.007785431136234559,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_yaw_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        2.8446615925659113e-05,
+        5.6141624087791e-05,
+        -1.3352361122431766e-05
+      ],
+      "rotation_tcp_rad": [
+        -8.316781422126331e-05,
+        8.859998216152169e-05,
+        0.008484619056587225
+      ],
+      "projection": 0.008484628346336277,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_horizontal_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -0.004218111449127149,
+        0.00028726710885790263,
+        0.00017618800548924174
+      ],
+      "rotation_tcp_rad": [
+        1.1061155412998115e-05,
+        -0.0001828024770111347,
+        -0.0007700690548617083
+      ],
+      "projection": 0.004212890254321247,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_horizontal_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        0.004229753603332109,
+        -0.00028475732324872993,
+        -0.00017660512467110312
+      ],
+      "rotation_tcp_rad": [
+        -4.52027786756698e-05,
+        0.00021901883856689552,
+        0.0007590348157511614
+      ],
+      "projection": 0.004224571838315946,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_vertical_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -0.0001564434128562553,
+        0.0038739800963708826,
+        8.338435971827485e-05
+      ],
+      "rotation_tcp_rad": [
+        3.331434024383379e-05,
+        0.00010681922564466232,
+        0.000588313261139596
+      ],
+      "projection": 0.003876013478336657,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_vertical_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        0.00019058726776816082,
+        -0.0038577221728920696,
+        -8.934107751276676e-05
+      ],
+      "rotation_tcp_rad": [
+        -5.0277723317328186e-05,
+        -8.153649384844913e-05,
+        -0.0006872933875938336
+      ],
+      "projection": 0.0038603142570588405,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_insert_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        8.414611624879553e-05,
+        2.4242258411605322e-05,
+        -0.004242700592904186
+      ],
+      "rotation_tcp_rad": [
+        -7.549628117561405e-05,
+        5.000435788956158e-05,
+        0.00044021997399095115
+      ],
+      "projection": 0.0042426886295348,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_insert_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -3.6419056213876644e-05,
+        1.8544081084703734e-05,
+        0.004267319917188872
+      ],
+      "rotation_tcp_rad": [
+        -6.0938267697676104e-05,
+        -9.102456785121904e-05,
+        -0.0007399758633927066
+      ],
+      "projection": 0.004267315627846744,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_roll_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -0.00017319270525456565,
+        -0.0002206530963816955,
+        -1.9012854442834737e-05
+      ],
+      "rotation_tcp_rad": [
+        0.008104949046958717,
+        4.397047564302677e-05,
+        0.001565147394672624
+      ],
+      "projection": 0.008104949046958717,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_roll_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        0.00013219727499769185,
+        0.0002494276592844291,
+        6.376336912361502e-06
+      ],
+      "rotation_tcp_rad": [
+        -0.007941304221757489,
+        5.714641762958102e-05,
+        -0.0018216487291274302
+      ],
+      "projection": 0.007941304221757489,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_pitch_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        4.3456808218378384e-05,
+        0.0001248371612899979,
+        7.123485848054001e-06
+      ],
+      "rotation_tcp_rad": [
+        -1.872606379666676e-05,
+        0.007406461869927552,
+        -0.0020977220473441865
+      ],
+      "projection": 0.007406461869927552,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_pitch_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -5.694153624924425e-05,
+        -0.0001440041017878313,
+        -7.125194982138261e-06
+      ],
+      "rotation_tcp_rad": [
+        6.107006877720265e-05,
+        -0.007438529481157113,
+        0.002093501948030387
+      ],
+      "projection": 0.007438529481157113,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_yaw_positive_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        3.950560684251592e-06,
+        3.1321700850739376e-05,
+        3.0831541983356026e-06
+      ],
+      "rotation_tcp_rad": [
+        9.964176706531767e-06,
+        1.8429598664524647e-05,
+        0.007959428402151093
+      ],
+      "projection": 0.007959428402151093,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_yaw_negative_admittance_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        -1.520328280057992e-05,
+        -7.927152641162838e-05,
+        1.3511659598397507e-06
+      ],
+      "rotation_tcp_rad": [
+        7.424311899797158e-05,
+        -0.00020719923003544664,
+        -0.00836856708092885
+      ],
+      "projection": 0.00836856708092885,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_horizontal_positive_servo_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        0.004849466334650054,
+        -0.00023748889942756812,
+        -7.214126131582788e-06
+      ],
+      "rotation_tcp_rad": [
+        -5.208816520218419e-06,
+        -4.988449665543604e-06,
+        0.0005155623288203245
+      ],
+      "projection": 0.004849466334650054,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "tool_pitch_positive_servo_1_normal_0.005m_s",
+      "passed": true,
+      "displacement_m": [
+        4.0772387289722545e-05,
+        0.00028197322895293087,
+        1.9080639240387498e-05
+      ],
+      "rotation_tcp_rad": [
+        -5.446431754021027e-05,
+        0.00867249517534057,
+        -0.0005347539130855008
+      ],
+      "projection": 0.00867249517534057,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_horizontal_positive_admittance_1_normal_0.002m_s",
+      "passed": true,
+      "displacement_m": [
+        0.0016386932626744066,
+        -6.230554887159956e-06,
+        -9.895500787793221e-05
+      ],
+      "rotation_tcp_rad": [
+        4.2069334959575356e-05,
+        0.00016726932818262038,
+        0.0005269163685770185
+      ],
+      "projection": 0.0016386932626744066,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_horizontal_positive_admittance_0.575_normal_0.002m_s",
+      "passed": true,
+      "displacement_m": [
+        0.0007835645159550708,
+        -0.00013365450313423954,
+        -6.292937661345199e-05
+      ],
+      "rotation_tcp_rad": [
+        -6.644807609590659e-05,
+        -0.00015239912363567353,
+        -0.0007369238128951562
+      ],
+      "projection": 0.0007835645159550708,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "base_horizontal_positive_admittance_1_precision_0.002m_s",
+      "passed": true,
+      "displacement_m": [
+        0.00033736192454320024,
+        -0.00012809650910658443,
+        -1.0024814368680968e-05
+      ],
+      "rotation_tcp_rad": [
+        -4.3780626929100814e-05,
+        -7.9314710325698e-05,
+        -0.0008090626407088918
+      ],
+      "projection": 0.00033736192454320024,
+      "fault": null,
+      "max_contacts": 0
+    },
+    {
+      "name": "proportional_half_deflection",
+      "passed": true,
+      "ratio": 0.47816423842267175
+    },
+    {
+      "name": "rb_precision_speed",
+      "passed": true,
+      "ratio": 0.20587252796329522
+    },
+    {
+      "name": "no_lb_no_motion",
+      "passed": true
+    },
+    {
+      "name": "deadzone_no_motion",
+      "passed": true
+    },
+    {
+      "name": "lb_release_freezes_target",
+      "passed": true
+    },
+    {
+      "name": "cannot_rearm_until_neutral",
+      "passed": true
+    },
+    {
+      "name": "lb_rearm_after_release_and_neutral",
+      "passed": true
+    },
+    {
+      "name": "b_stop_latches",
+      "passed": true
+    },
+    {
+      "name": "a_reanchors_and_resumes",
+      "passed": true
+    },
+    {
+      "name": "disconnect_latches",
+      "passed": true
+    },
+    {
+      "name": "stale_input_stops",
+      "passed": true
+    },
+    {
+      "name": "physical_force_admittance_direction",
+      "passed": true,
+      "displacement_m": [
+        -0.00046177408158221134,
+        0.0002205597680804139,
+        -0.009733617532298289
+      ],
+      "force_base_n": [
+        -0.005974132267597872,
+        0.0027104851893574276,
+        -3.0123944616264366
+      ]
+    },
+    {
+      "name": "physical_force_release",
+      "passed": true,
+      "residual_m": 0.00020221971904394698
+    },
+    {
+      "name": "force_limit_stops",
+      "passed": true,
+      "fault": "force_limit"
+    },
+    {
+      "name": "cannot_resume_under_load",
+      "passed": true
+    },
+    {
+      "name": "force_release_then_a_recovers",
+      "passed": true
+    },
+    {
+      "name": "center_left_axis0_-1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15703838230439063,
+      "max_post_center_travel_m": 0.00041861478913716034,
+      "restart_distance_m": 0.005050625495597545,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis0_1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15708985856774366,
+      "max_post_center_travel_m": 0.00046911179935287786,
+      "restart_distance_m": 0.00502518197957959,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis1_-1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15778900993074452,
+      "max_post_center_travel_m": 0.0007069508493226686,
+      "restart_distance_m": 0.004745029668681028,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis1_1_base_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15771092335104503,
+      "max_post_center_travel_m": 0.0007483803487476497,
+      "restart_distance_m": 0.004740544387097713,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis0_-1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15713291157379164,
+      "max_post_center_travel_m": 0.00046789687633994373,
+      "restart_distance_m": 0.0049864693889701455,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis0_1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15710139468965537,
+      "max_post_center_travel_m": 0.0004176584185810711,
+      "restart_distance_m": 0.005015764530076754,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis1_-1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.1600476037960947,
+      "max_post_center_travel_m": 0.000495425174817352,
+      "restart_distance_m": 0.00349947020344056,
+      "fault": null
+    },
+    {
+      "name": "center_left_axis1_1_tool_lb_held",
+      "passed": true,
+      "speed_request_m_s": 0.2,
+      "backlog_at_release_m": 0.15972619910719527,
+      "max_post_center_travel_m": 0.0005448354835215798,
+      "restart_distance_m": 0.0037709921617701874,
+      "fault": null
+    }
+  ],
+  "backend": "MuJoCo JAKA",
+  "keyframe": "low",
+  "configured_linear_speed_m_s": 0.005,
+  "configured_angular_speed_deg_s": 0.5,
+  "scope": "Synthetic SDL-normalized samples through JakaJoyServo, measured MuJoCo F/T, admittance, CartesianServo, force gate and position actuators. External-force checks use physical xfrc_applied. Not a physical robot test."
+}

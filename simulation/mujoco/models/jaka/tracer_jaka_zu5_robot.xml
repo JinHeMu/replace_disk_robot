@@ -638,8 +638,9 @@
                                     rgba="0.9373 0.2667 0.2667 1" group="3"
                                     contype="1" conaffinity="1" type="sphere"
                                     size="0.045" />
-                              <!-- tool0_joint: preserve the TCP origin/+Z; reverse +X/+Y. -->
-                              <body name="tool0" pos="0 0 0.27" quat="0 0 0 1" />
+                              <!-- Disk insertion edge: 195 mm from the sensor
+                                   surface/origin, matching URDF tool0_joint. -->
+                              <body name="tool0" pos="0 0 0.195" quat="0 0 0 1" />
                                 <body name="d435i_link" pos="0 -0.085 0.03" quat="0.0007963 0 0 0.9999997">
                                   <geom pos="0 0 0"
                                         group="1"

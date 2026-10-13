@@ -7,6 +7,7 @@ An SDK send success means acceptance by the adapter, not physical execution.
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
+from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -82,6 +83,8 @@ class CycleCapture:
             "admittance_before": admittance_snapshot(app),
             "fault_before": app.servo.fault,
             "admittance_updated": False, "command_sent": False,
+            "commanded_q_before_rad": (None if app.servo.target is None
+                                       else app.servo.target.position_rad.copy()),
         }
         self.data.update(app.input_snapshot())
 
@@ -104,6 +107,7 @@ class CycleCapture:
                             "angular_rad_s": jog.angular_rad_s.copy()}
 
     def reference(self, app, wrench):
+        self.data["reference_ready_monotonic_ns"] = time.perf_counter_ns()
         self.data["admittance_updated"] = True
         self.data["admittance_integrated"] = admittance_snapshot(app)
         self.data["unclamped_pose"] = pose_snapshot(app.motion.corrected_pose)
@@ -128,6 +132,14 @@ class CycleCapture:
         self.data["rotation_offset_clamped"] = (
             np.linalg.norm(after["offset"][3:]) > np.deg2rad(app.args.adm_max_offset_deg)
         )
+
+    def servo(self, app, target):
+        self.data["servo_ready_monotonic_ns"] = time.perf_counter_ns()
+        self.data["servo_tracking"] = deepcopy(app.servo.pose_tracking)
+        self.data["servo_target_tcp_pose"] = pose_snapshot(app.kinematics.forward(target))
+
+    def final_command(self, app, target):
+        self.data["final_command_tcp_pose"] = pose_snapshot(app.kinematics.forward(target))
 
     def finish(self, app, error=None):
         self.data.update({
@@ -281,6 +293,7 @@ def session_metadata(args, app, project_root):
         revision, dirty = None, None
     return {
         "schema_version": SCHEMA_VERSION,
+        "servo_pose_tracking_mode": app.servo.pose_tracking_mode,
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "clock": {"monotonic_ns": time.perf_counter_ns(), "unix_ns": time.time_ns(),
                   "sensor_timestamp_available": False},

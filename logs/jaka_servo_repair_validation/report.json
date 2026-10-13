@@ -1,0 +1,448 @@
+{
+  "scope": "offline delayed-actuator regression; not a hardware/contact acceptance",
+  "harmonic_cases": [
+    {
+      "delay_s": 0.0,
+      "axis": 0,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 0.9347663647864403,
+        "command_amplitude_ratio": 0.9347663647864402,
+        "actual_phase_deg": -20.10242123860809,
+        "command_phase_deg": -20.102421238608088
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360249,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": 4.933721634589716e-15,
+        "command_phase_deg": 1.0076283794913074e-15
+      }
+    },
+    {
+      "delay_s": 0.0,
+      "axis": 0,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 0.7961299004179704,
+        "command_amplitude_ratio": 0.7961299004179702,
+        "actual_phase_deg": -35.82169136112232,
+        "command_phase_deg": -35.82169136112234
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360254,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": 5.124844192612018e-15,
+        "command_phase_deg": -1.0896614779663053e-15
+      }
+    },
+    {
+      "delay_s": 0.0,
+      "axis": 0,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 0.5497080958970122,
+        "command_amplitude_ratio": 0.5497080958970122,
+        "actual_phase_deg": -53.82356915398088,
+        "command_phase_deg": -53.82356915398086
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360256,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -1.1462937054511099e-14,
+        "command_phase_deg": -1.1462937054511099e-14
+      }
+    },
+    {
+      "delay_s": 0.0,
+      "axis": 5,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 0.9347663647864416,
+        "command_amplitude_ratio": 0.9347663647864421,
+        "actual_phase_deg": -20.102421238608102,
+        "command_phase_deg": -20.10242123860809
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360268,
+        "command_amplitude_ratio": 0.9996001599360276,
+        "actual_phase_deg": -6.13866553284526e-16,
+        "command_phase_deg": 5.088037539494349e-16
+      }
+    },
+    {
+      "delay_s": 0.0,
+      "axis": 5,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 0.7961299004179718,
+        "command_amplitude_ratio": 0.7961299004179715,
+        "actual_phase_deg": -35.821691361122326,
+        "command_phase_deg": -35.82169136112232
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360267,
+        "command_amplitude_ratio": 0.9996001599360268,
+        "actual_phase_deg": 5.271982633880363e-15,
+        "command_phase_deg": 6.747535169563507e-15
+      }
+    },
+    {
+      "delay_s": 0.0,
+      "axis": 5,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 0.5497080958970124,
+        "command_amplitude_ratio": 0.5497080958970123,
+        "actual_phase_deg": -53.82356915398084,
+        "command_phase_deg": -53.82356915398086
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360257,
+        "command_amplitude_ratio": 0.9996001599360257,
+        "actual_phase_deg": -1.3564190838840454e-15,
+        "command_phase_deg": -1.3564190838840454e-15
+      }
+    },
+    {
+      "delay_s": 0.072,
+      "axis": 0,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 1.0161500067042513,
+        "command_amplitude_ratio": 1.016150006704251,
+        "actual_phase_deg": -21.381424506669678,
+        "command_phase_deg": -8.421424506669682
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360252,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -12.96,
+        "command_phase_deg": 1.0076283794913074e-15
+      }
+    },
+    {
+      "delay_s": 0.072,
+      "axis": 0,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 1.0569768741121512,
+        "command_amplitude_ratio": 1.0569768741121508,
+        "actual_phase_deg": -44.63903079244844,
+        "command_phase_deg": -18.71903079244848
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360257,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -25.92000000000001,
+        "command_phase_deg": -1.0896614779663053e-15
+      }
+    },
+    {
+      "delay_s": 0.072,
+      "axis": 0,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 1.0524875987206588,
+        "command_amplitude_ratio": 1.0524875987206586,
+        "actual_phase_deg": -101.52294425828885,
+        "command_phase_deg": -49.68294425828882
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360258,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -51.84000000000004,
+        "command_phase_deg": -1.1462937054511099e-14
+      }
+    },
+    {
+      "delay_s": 0.072,
+      "axis": 5,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 1.0161500067042528,
+        "command_amplitude_ratio": 1.016150006704253,
+        "actual_phase_deg": -21.38142450666968,
+        "command_phase_deg": -8.42142450666968
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360276,
+        "command_amplitude_ratio": 0.9996001599360276,
+        "actual_phase_deg": -12.960000000000012,
+        "command_phase_deg": 5.088037539494349e-16
+      }
+    },
+    {
+      "delay_s": 0.072,
+      "axis": 5,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 1.0569768741121528,
+        "command_amplitude_ratio": 1.0569768741121528,
+        "actual_phase_deg": -44.63903079244849,
+        "command_phase_deg": -18.719030792448468
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360275,
+        "command_amplitude_ratio": 0.9996001599360268,
+        "actual_phase_deg": -25.919999999999977,
+        "command_phase_deg": 6.747535169563507e-15
+      }
+    },
+    {
+      "delay_s": 0.072,
+      "axis": 5,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 1.052487598720659,
+        "command_amplitude_ratio": 1.0524875987206588,
+        "actual_phase_deg": -101.52294425828885,
+        "command_phase_deg": -49.68294425828882
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360249,
+        "command_amplitude_ratio": 0.9996001599360257,
+        "actual_phase_deg": -51.84,
+        "command_phase_deg": -1.3564190838840454e-15
+      }
+    },
+    {
+      "delay_s": 0.144,
+      "axis": 0,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 1.1166089880714214,
+        "command_amplitude_ratio": 1.1166086254511751,
+        "actual_phase_deg": -21.64481823696551,
+        "command_phase_deg": 4.275341932626909
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360248,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -25.919999999999998,
+        "command_phase_deg": 1.0076283794913074e-15
+      }
+    },
+    {
+      "delay_s": 0.144,
+      "axis": 0,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 1.6719262663781367,
+        "command_amplitude_ratio": 1.6719225396514743,
+        "actual_phase_deg": -48.87368940578595,
+        "command_phase_deg": 2.9666680523605047
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360255,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -51.84000000000003,
+        "command_phase_deg": -1.0896614779663053e-15
+      }
+    },
+    {
+      "delay_s": 0.144,
+      "axis": 0,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 1.4807205794714646,
+        "command_amplitude_ratio": 1.4807243810665693,
+        "actual_phase_deg": 144.2355762431262,
+        "command_phase_deg": -112.08358090811879
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360256,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -103.68000000000004,
+        "command_phase_deg": -1.1462937054511099e-14
+      }
+    },
+    {
+      "delay_s": 0.144,
+      "axis": 5,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 1.1166091067142878,
+        "command_amplitude_ratio": 1.1166086844474128,
+        "actual_phase_deg": -21.644819064143952,
+        "command_phase_deg": 4.275355139035468
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360275,
+        "command_amplitude_ratio": 0.9996001599360276,
+        "actual_phase_deg": -25.919999999999984,
+        "command_phase_deg": 5.088037539494349e-16
+      }
+    },
+    {
+      "delay_s": 0.144,
+      "axis": 5,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 1.67192626637814,
+        "command_amplitude_ratio": 1.6719225396514776,
+        "actual_phase_deg": -48.873689405785946,
+        "command_phase_deg": 2.9666680523605082
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360272,
+        "command_amplitude_ratio": 0.9996001599360268,
+        "actual_phase_deg": -51.84,
+        "command_phase_deg": 6.747535169563507e-15
+      }
+    },
+    {
+      "delay_s": 0.144,
+      "axis": 5,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 1.4807205794714633,
+        "command_amplitude_ratio": 1.4807243810665687,
+        "actual_phase_deg": 144.2355762431262,
+        "command_phase_deg": -112.08358090811882
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360256,
+        "command_amplitude_ratio": 0.9996001599360257,
+        "actual_phase_deg": -103.68000000000005,
+        "command_phase_deg": -1.3564190838840454e-15
+      }
+    },
+    {
+      "delay_s": 0.2,
+      "axis": 0,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 1.2813393716333623,
+        "command_amplitude_ratio": 1.2721209127335906,
+        "actual_phase_deg": -20.195410149476555,
+        "command_phase_deg": 23.1971369698962
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360251,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -35.99999999999997,
+        "command_phase_deg": 1.0076283794913074e-15
+      }
+    },
+    {
+      "delay_s": 0.2,
+      "axis": 0,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 2.9077096607966504,
+        "command_amplitude_ratio": 2.940257163582342,
+        "actual_phase_deg": -44.816607128513176,
+        "command_phase_deg": 25.42469418350035
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360255,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -72.00000000000003,
+        "command_phase_deg": -1.0896614779663053e-15
+      }
+    },
+    {
+      "delay_s": 0.2,
+      "axis": 0,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 0.6955307514090864,
+        "command_amplitude_ratio": 0.5777558497408,
+        "actual_phase_deg": 77.02231780786994,
+        "command_phase_deg": -124.7664889171455
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360256,
+        "command_amplitude_ratio": 0.9996001599360256,
+        "actual_phase_deg": -144.00000000000003,
+        "command_phase_deg": -1.1462937054511099e-14
+      }
+    },
+    {
+      "delay_s": 0.2,
+      "axis": 5,
+      "frequency_hz": 0.5,
+      "before": {
+        "actual_amplitude_ratio": 1.2813374219859215,
+        "command_amplitude_ratio": 1.272117508489612,
+        "actual_phase_deg": -20.19562820297297,
+        "command_phase_deg": 23.19758142252372
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360276,
+        "command_amplitude_ratio": 0.9996001599360276,
+        "actual_phase_deg": -36.000000000000036,
+        "command_phase_deg": 5.088037539494349e-16
+      }
+    },
+    {
+      "delay_s": 0.2,
+      "axis": 5,
+      "frequency_hz": 1.0,
+      "before": {
+        "actual_amplitude_ratio": 3.9193747776048853,
+        "command_amplitude_ratio": 3.839382587013086,
+        "actual_phase_deg": -42.23485093315408,
+        "command_phase_deg": 37.111604713976
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360269,
+        "command_amplitude_ratio": 0.9996001599360268,
+        "actual_phase_deg": -72.00000000000001,
+        "command_phase_deg": 6.747535169563507e-15
+      }
+    },
+    {
+      "delay_s": 0.2,
+      "axis": 5,
+      "frequency_hz": 2.0,
+      "before": {
+        "actual_amplitude_ratio": 0.8021470127297086,
+        "command_amplitude_ratio": 0.5691405589178185,
+        "actual_phase_deg": 66.35882593480264,
+        "command_phase_deg": -134.4248681567987
+      },
+      "after": {
+        "actual_amplitude_ratio": 0.9996001599360258,
+        "command_amplitude_ratio": 0.9996001599360257,
+        "actual_phase_deg": -144.00000000000003,
+        "command_phase_deg": -1.3564190838840454e-15
+      }
+    }
+  ],
+  "reference_replays": [
+    {
+      "session": "logs/jaka_joy_trial_001",
+      "scope": "same recorded references; fixed 18-sample actuator delay; no contact prediction",
+      "before": {
+        "rows": 2379,
+        "fault": null,
+        "reference_to_actual_rms_mm": 0.8424439999352312,
+        "reference_to_command_rms_mm": 0.42542363235368097
+      },
+      "after": {
+        "rows": 2379,
+        "fault": null,
+        "reference_to_actual_rms_mm": 0.7104683769519256,
+        "reference_to_command_rms_mm": 0.010147989964553834
+      }
+    },
+    {
+      "session": "logs/jaka_joy_trial_002",
+      "scope": "same recorded references; fixed 18-sample actuator delay; no contact prediction",
+      "before": {
+        "rows": 4719,
+        "fault": null,
+        "reference_to_actual_rms_mm": 1.0841296190509333,
+        "reference_to_command_rms_mm": 0.5707392030387144
+      },
+      "after": {
+        "rows": 4719,
+        "fault": null,
+        "reference_to_actual_rms_mm": 0.8287294167124998,
+        "reference_to_command_rms_mm": 0.04622738349058142
+      }
+    }
+  ],
+  "synthetic_no_amplification_passed": true
+}

@@ -804,8 +804,9 @@
   <joint name="tool0_joint" type="fixed">
     <parent link="tool0_and_camera_link" />
     <child link="tool0" />
-    <!-- Reverse tool0 +X/+Y while preserving its origin and +Z direction. -->
-    <origin xyz="0 0 0.27" rpy="0 0 3.141592653589793" />
+    <!-- Disk insertion edge: 195 mm along +Z from the sensor surface/origin.
+         Coaxial mounting assumption; retain the existing tool0 axis directions. -->
+    <origin xyz="0 0 0.195" rpy="0 0 3.141592653589793" />
   </joint>
 
 

@@ -284,6 +284,13 @@ python examples/jaka_driver_tool/jaka_stop.py
 - W/S/A/D 和旋转键 → `jaka_base_link`；
 - R/F → 当前 `tool0` +Z/−Z 插入/退出。
 
+当前硬盘插入 TCP 为 `tool0`：按传感器表面/模型传感器原点同轴约定，
+沿工具 +Z 前方 **195 mm**，横向偏移为零。URDF、MuJoCo XML、默认 F/T 力臂和
+在线 `tool/ft_gravity_samples_identified.json` 均使用这一控制点；TCP 指向传感器的
+工具坐标向量为 `[0, 0, -0.195] m`。默认传感器旋转与当前重力 JSON 已按 URDF 定义；
+旧旋转标定会被拒绝加载。2026-10-13 的 1021 行新标定是全行拟合候选，尚缺独立静态验证；
+见 [数据分析](logs/jaka_gravity_20261013_analysis/report.md) 和 [重力辨识说明](tool/README.md)。
+
 ## Jaka 导纳实验
 
 JAKA `low` 姿态下的虚拟外力实验：

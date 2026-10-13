@@ -15,20 +15,21 @@ from replace_disk_robot.core.rotation import quaternion_from_rotation_matrix, ro
 from replace_disk_robot.contact.force_processing import external_wrench_at_tcp
 from .config import PROJECT_ROOT
 
-# ``tool0`` in the current JAKA URDF is rotated by pi around its own Z axis
-# relative to the tool frame used by the shared EDG adapter defaults. Re-express
-# both extrinsics in current tool0 coordinates without changing the physical
-# sensor pose.
-_TOOL0_FROM_PREVIOUS_TOOL = np.diag([-1.0, -1.0, 1.0])
-
-
 def default_tool0_ft_transforms() -> tuple[np.ndarray, np.ndarray]:
-    """Return the shared JAKA F/T defaults expressed in the current ``tool0``."""
+    """Return URDF sensor-link axes and the coaxial 195 mm disk TCP."""
+    return DEFAULT_SENSOR_TO_TOOL_ROTATION.copy(), DEFAULT_TOOL_ARM_M.copy()
 
-    return (
-        _TOOL0_FROM_PREVIOUS_TOOL @ DEFAULT_SENSOR_TO_TOOL_ROTATION,
-        _TOOL0_FROM_PREVIOUS_TOOL @ DEFAULT_TOOL_ARM_M,
-    )
+
+def validate_tool0_ft_extrinsics(rotation: np.ndarray, lever: np.ndarray) -> None:
+    """Reject a payload fit identified with a different sensor/TCP geometry."""
+    expected_rotation, expected_lever = default_tool0_ft_transforms()
+    if (not np.allclose(rotation, expected_rotation, atol=1e-3, rtol=0)
+            or not np.allclose(lever, expected_lever, atol=1e-3, rtol=0)):
+        raise ValueError(
+            "gravity JSON sensor_to_tool_rotation/tool_to_sensor_m differs from "
+            "the URDF tool0 sensor geometry; collect a new static gravity dataset "
+            "and run tool/identify_ft_payload.py before enabling admittance"
+        )
 
 
 def _ft_transforms(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
@@ -118,6 +119,7 @@ class WrenchPipeline:
             tool_to_sensor = np.asarray(response, dtype=float)
         if tool_to_sensor.shape != (3,) or not np.isfinite(tool_to_sensor).all():
             raise ValueError("gravity JSON tool_to_sensor_m must be a finite 3-vector")
+        validate_tool0_ft_extrinsics(sensor_to_tool, tool_to_sensor)
 
         self.sensor_to_tool_rotation = sensor_to_tool
         self.tool_to_sensor_m = tool_to_sensor

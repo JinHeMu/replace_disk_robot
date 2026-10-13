@@ -76,6 +76,7 @@ from replace_disk_robot.kinematics.jaka import JakaKinematics
 from replace_disk_robot.safety import ForceLimitGuard
 from replace_disk_robot.applications.common.wrench import (
     default_tool0_ft_transforms,
+    validate_tool0_ft_extrinsics,
 )
 
 
@@ -615,6 +616,7 @@ class JakaKeyboardServo:
             tool_to_sensor = np.asarray(response, dtype=float)
         if tool_to_sensor.shape != (3,) or not np.isfinite(tool_to_sensor).all():
             raise ValueError("gravity JSON tool_to_sensor_m must be a finite 3-vector")
+        validate_tool0_ft_extrinsics(sensor_to_tool, tool_to_sensor)
 
         self.sensor_to_tool_rotation = sensor_to_tool
         self.tool_to_sensor_m = tool_to_sensor
