@@ -17,3 +17,61 @@ MUJOCO_LOG.TXT
 
 # Local conda environments (read-only system envs dir workaround)
 .conda_envs/
+
+# Generated runtime / test artifacts (never commit, including compressed copies)
+!logs/
+logs/**
+!logs/**/
+!logs/**/*.py
+!logs/**/*.sh
+!logs/**/*.c
+!logs/**/*.cpp
+!logs/**/*.h
+!logs/**/*.hpp
+log/
+.roslog/
+bags/
+rosbags/
+rosbag/
+bag/
+recordings/
+bag_export/
+*.log
+*.log.*
+*.stderr
+*.stdout
+*.jsonl
+*.jsonl.*
+*.bag
+*.bag.*
+*.db3
+*.db3-*
+*.db3.*
+*.mcap
+*.mcap.*
+*.active
+*.zip
+*.tar
+*.tar.gz
+*.tar.xz
+*.tgz
+*.7z
+*.rar
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+test_results/
+
+# Local simulation outputs, sampled measurements and generated presentations
+/simulation/mujoco/reports/
+/simulation/mujoco/captures/
+/output/
+/data.txt
+/docs/*_acceptance.json
+/tool/*.csv
+/tool/*.png
+/tool/*.json
+# This calibration is consumed by the online force controller.
+!/tool/ft_gravity_samples_identified.json
