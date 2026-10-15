@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.tools/
 venv/
 build/
 dist/
@@ -15,7 +16,7 @@ MUJOCO_LOG.TXT
 .idea/
 .vscode/
 
-# Local conda environments (read-only system envs dir workaround)
+# Retired local environment; not used by the current setup.
 .conda_envs/
 
 # Generated runtime / test artifacts (never commit, including compressed copies)

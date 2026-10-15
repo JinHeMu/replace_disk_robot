@@ -16,8 +16,8 @@ offset and the Cartesian servo tracks it with the JAKA position actuators.
 When the MuJoCo viewer is enabled, a colored arrow shows the current applied
 force direction at the wrist force/torque sensor site.
 
-Run with the MuJoCo viewer (activate the isolated conda env first):
-    conda activate /home/a/replace_disk_robot/.conda_envs/replace_disk_robot
+Run with the MuJoCo viewer (activate the project environment first):
+    source scripts/activate_env.sh
     python examples/demo_jaka_admittance_force_axes.py --viewer
 
 Run headless:

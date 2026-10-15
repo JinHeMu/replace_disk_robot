@@ -6,13 +6,13 @@ This script uses:
 * RRTConnectPlanner from ``planning/search.py``
 * TrajectoryOptimizer from ``planning/trj_opt.py``
 
-Run with a Pinocchio-compatible Python environment, e.g. the conda env:
+Run after activating the project environment with ``source scripts/activate_env.sh``:
 
-    (replace_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --save
+    (.venv) $ python3 examples/demo_ur5e_rrt_opt.py --save
 
 Or with interactive window:
 
-    (replace_disk_robot) $ python3 examples/demo_ur5e_rrt_opt.py --show
+    (.venv) $ python3 examples/demo_ur5e_rrt_opt.py --show
 """
 
 from __future__ import annotations

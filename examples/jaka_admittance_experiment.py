@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageDraw
 
-# The model must see the isolated conda environment before importing MuJoCo.
+# The model must see the isolated project environment before importing MuJoCo.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "examples"))

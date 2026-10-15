@@ -5,17 +5,46 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hard-disk-robot"
 version = "0.1.0"
-description = "Backend-independent robotics tools and MuJoCo precision disk insertion scene"
+description = "JAKA ZU5 disk insertion: control, MuJoCo, RealSense and learning tools"
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = ["numpy>=1.24"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Keep the existing control/simulation versions while replacing the installer.
+    "numpy==2.5.2",
+    "mujoco==3.12.0",
+    "pin==4.1.0",
+    "pygame==2.6.1",
+    "PyYAML>=6,<7",
+    "Pillow>=11,<13",
+    "matplotlib>=3.10,<4",
+    # D435 RGB-D acquisition and demonstration storage.
+    "pyrealsense2==2.59.1.11053",
+    "opencv-python-headless==4.13.0.92",
+    "h5py>=3.14,<4",
+    # PyTorch BC / SAC foundation; the robot training loop is a separate task.
+    "torch==2.8.0",
+    "torchvision==0.23.0",
+    "gymnasium==1.4.0",
+    "stable-baselines3==2.9.0",
+    "tensorboard>=2.20,<3",
+]
 
-[project.optional-dependencies]
-mujoco = ["mujoco>=3.1", "Pillow>=9.0"]
-kinematics = ["pin>=3,<5"]
-test = ["pytest>=8,<9"]
-visual = ["matplotlib>=3.8"]
-joy = ["pygame>=2.6,<3", "PyYAML>=6"]
+[dependency-groups]
+dev = ["pytest>=8.4,<9"]
+
+[tool.uv]
+required-version = "==0.13.1"
+# The bundled JAKA SDK is Linux x86_64; do not resolve unsupported targets.
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
 
 [tool.pytest.ini_options]
 # Keep unrelated user/ROS pytest entry points out of this standalone package.
